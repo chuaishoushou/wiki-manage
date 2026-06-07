@@ -9,3 +9,10 @@ build/
 .vscode/
 *.swp
 .cache/
+__pycache__/
+*.pyc
+
+# 审计/体检报告描述的是【你的私有 wiki 内容】(含客户真名/密钥位置),
+# 绝不能随工具仓分享给团队 —— 本地保留、不提交。
+docs/security-audit-*.md
+docs/lint-baseline-*.md

@@ -1,0 +1,15 @@
+---
+description: 团队 LLM Wiki 治理规则。涉及 wiki 查询/入库时 @-mention 本规则;一致性主要靠 MCP 工具,本文件只作便利指针。
+alwaysApply: false
+---
+
+# 团队 LLM Wiki(Cursor 适配 —— MCP-only 模式)
+
+> ⚠️ Cursor 无 plugin/skill 体系,且 `.cursorrules` 会压过 AGENTS.md。本规则不承担一致性保证,**一致性 100% 来自 MCP 工具**;规则只作 @-mention 便利。占位符由 bin/wiki-init 替换。
+
+本项目可访问团队 LLM Wiki(`{{WIKI_ROOT}}`)。涉及 wiki 时:
+1. 先调 MCP 工具 `wiki_get_protocol` 拉协议 + 新鲜度(落后则先 git pull)。
+2. 查询:`wiki_resolve_route` → `wiki_search` → `wiki_get_page`,引用页面路径。
+3. 入库(仅维护者):`wiki_sensitivity` 过敏感闸 → `wiki_suggest_path` → 补 frontmatter → `wiki_validate` 通过后用编辑器落盘;低置信入 `staging/`。
+
+规则真源:`{{WIKI_ROOT}}/AGENTS.md` + `{{WIKI_ROOT}}/_vocabulary.md`。

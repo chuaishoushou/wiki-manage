@@ -1,0 +1,9 @@
+{
+  "name": "wiki-governance",
+  "description": "按统一规则维护团队 LLM Wiki:ingest/query/lint skill + slash command + 只读检索 MCP。规则真源在团队仓 AGENTS.md/_vocabulary.md。",
+  "author": {
+    "name": "TEAM_MAINTAINER"
+  },
+  "keywords": ["wiki", "knowledge-base", "llm-wiki", "governance"],
+  "mcpServers": "./.mcp.json"
+}

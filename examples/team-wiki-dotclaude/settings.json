@@ -1,0 +1,13 @@
+{
+  "extraKnownMarketplaces": {
+    "wiki-governance-marketplace": {
+      "source": {
+        "source": "github",
+        "repo": "REPLACE_ORG/wiki-manage"
+      }
+    }
+  },
+  "enabledPlugins": {
+    "wiki-governance@wiki-governance-marketplace": true
+  }
+}

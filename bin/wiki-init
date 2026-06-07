@@ -1,0 +1,182 @@
+#!/usr/bin/env python3
+"""wiki-init:团队成员一键 onboarding(跨平台,纯标准库)。
+
+为 Claude Code / Codex / Cursor 生成"连同一个只读 wiki MCP + 指向同一 AGENTS.md"的配置,
+并跑自检(wiki-cli protocol)。默认只打印(安全);--write 才真正落地用户/项目文件。
+
+用法:
+  bin/wiki-init                         # 打印三家配置 + 自检(默认 wiki 根 = $WIKI_ROOT 或 ~/AI/wiki)
+  bin/wiki-init --wiki-root ~/AI/wiki   # 指定 wiki 根
+  bin/wiki-init --platform codex --write           # 真正写 ~/.codex/{config.toml,AGENTS.md}
+  bin/wiki-init --platform cursor --cursor-project ~/proj --write   # 写 ~/proj/.cursor/*
+"""
+import argparse
+import os
+import sys
+
+WIKI_MANAGE = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
+ADAPTERS = os.path.join(WIKI_MANAGE, "adapters")
+CLI = os.path.join(WIKI_MANAGE, "plugins", "wiki-governance", "tools", "bin", "wiki-cli")
+MARKER = "# === wiki-governance (auto by wiki-init) ==="
+
+
+def render(rel_path, wiki_root):
+    with open(os.path.join(ADAPTERS, rel_path), "r", encoding="utf-8") as f:
+        text = f.read()
+    return text.replace("{{WIKI_MANAGE}}", WIKI_MANAGE).replace("{{WIKI_ROOT}}", wiki_root)
+
+
+def resolve_wiki_root(arg):
+    if arg:
+        return os.path.abspath(os.path.expanduser(arg))
+    env = os.environ.get("WIKI_ROOT")
+    if env:
+        return os.path.abspath(os.path.expanduser(env))
+    return os.path.expanduser("~/AI/wiki")
+
+
+def banner(title):
+    print("\n" + "=" * 60)
+    print(title)
+    print("=" * 60)
+
+
+def _append_with_marker(path, content):
+    """幂等追加:已含 MARKER 则跳过。"""
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    existing = ""
+    if os.path.isfile(path):
+        with open(path, "r", encoding="utf-8") as f:
+            existing = f.read()
+    if MARKER in existing:
+        print(f"  (跳过,已存在 wiki-init 标记) {path}")
+        return
+    with open(path, "a", encoding="utf-8") as f:
+        f.write("\n" + MARKER + "\n" + content + "\n")
+    print(f"  ✅ 写入 {path}")
+
+
+def do_cc(wiki_root, write):
+    banner("Claude Code(git 手动安装,不用市场)")
+    server = os.path.join(WIKI_MANAGE, "plugins", "wiki-governance", "tools", "server", "wiki_mcp.py")
+    skills_src = os.path.join(WIKI_MANAGE, "plugins", "wiki-governance", "skills")
+    cmds_src = os.path.join(WIKI_MANAGE, "plugins", "wiki-governance", "commands")
+    ptr = render("cc/CLAUDE.md.pointer", wiki_root)
+    # 注意:name 必须在 -e 之前(-e 是可变参数,否则会把 name 当成 env 吞掉)
+    mcp_cmd = f'claude mcp add -s user wiki -e WIKI_ROOT="{wiki_root}" -- python3 "{server}"'
+    if not write:
+        print("① 注册 MCP(只读工具,绕开市场):")
+        print(f"   {mcp_cmd}")
+        print("② 写规则指针到 ~/.claude/CLAUDE.md(注册到 CC 内存/规则):\n")
+        print(ptr)
+        print("③ (可选)装 skill+slash 命令(符号链接,git pull 即更新):")
+        print(f"   for s in wiki-ingest wiki-query wiki-lint; do ln -sfn \"{skills_src}/$s\" ~/.claude/skills/$s; done")
+        print(f"   mkdir -p ~/.claude/commands; for c in {cmds_src}/wiki-*.md; do ln -sfn \"$c\" ~/.claude/commands/; done")
+        print("④ 重启 Claude Code")
+        print("(加 --write 自动执行 ①②③)")
+        return
+    rc = os.system(mcp_cmd)
+    print("  ① MCP: " + ("✅ 已注册" if rc == 0 else "⚠ 失败或已存在(claude mcp list 查看)"))
+    _append_with_marker(os.path.expanduser("~/.claude/CLAUDE.md"), ptr)
+    sk_dir = os.path.expanduser("~/.claude/skills")
+    os.makedirs(sk_dir, exist_ok=True)
+    for s in ("wiki-ingest", "wiki-query", "wiki-lint"):
+        dst = os.path.join(sk_dir, s)
+        if os.path.lexists(dst):
+            print(f"  ③ 跳过已存在 skill {s}")
+        else:
+            os.symlink(os.path.join(skills_src, s), dst)
+            print(f"  ③ ✅ 链接 skill {s}")
+    cmd_dir = os.path.expanduser("~/.claude/commands")
+    os.makedirs(cmd_dir, exist_ok=True)
+    for c in os.listdir(cmds_src):
+        if not c.endswith(".md"):
+            continue
+        dst = os.path.join(cmd_dir, c)
+        if os.path.lexists(dst):
+            print(f"  ③ 跳过已存在命令 {c}")
+        else:
+            os.symlink(os.path.join(cmds_src, c), dst)
+            print(f"  ③ ✅ 链接命令 {c}")
+    print("  ④ 重启 Claude Code 生效")
+
+
+def do_codex(wiki_root, write):
+    banner("Codex")
+    toml_snip = render("codex/config.toml.snippet", wiki_root)
+    ptr = render("codex/AGENTS.md.pointer", wiki_root)
+    if write:
+        _append_with_marker(os.path.expanduser("~/.codex/config.toml"), toml_snip)
+        _append_with_marker(os.path.expanduser("~/.codex/AGENTS.md"), ptr)
+    else:
+        print("追加到 ~/.codex/config.toml :\n")
+        print(toml_snip)
+        print("追加到 ~/.codex/AGENTS.md(用户级指针):\n")
+        print(ptr)
+        print("(加 --write 自动落地)")
+
+
+def do_cursor(wiki_root, write, project):
+    banner("Cursor(MCP-only 模式)")
+    mcp_snip = render("cursor/mcp.json.snippet", wiki_root)
+    rule = render("cursor/wiki.mdc", wiki_root)
+    if write and project:
+        proj = os.path.abspath(os.path.expanduser(project))
+        mcp_path = os.path.join(proj, ".cursor", "mcp.json")
+        rule_path = os.path.join(proj, ".cursor", "rules", "wiki.mdc")
+        os.makedirs(os.path.dirname(mcp_path), exist_ok=True)
+        os.makedirs(os.path.dirname(rule_path), exist_ok=True)
+        # mcp.json 直接写(不追加,JSON 不能 marker);存在则提示
+        if os.path.isfile(mcp_path):
+            print(f"  ⚠ 已存在 {mcp_path},请手动合并下面内容:\n{mcp_snip}")
+        else:
+            with open(mcp_path, "w", encoding="utf-8") as f:
+                f.write(mcp_snip)
+            print(f"  ✅ 写入 {mcp_path}")
+        with open(rule_path, "w", encoding="utf-8") as f:
+            f.write(rule)
+        print(f"  ✅ 写入 {rule_path}")
+    else:
+        print(".cursor/mcp.json :\n")
+        print(mcp_snip)
+        print(".cursor/rules/wiki.mdc :\n")
+        print(rule)
+        print("(加 --write --cursor-project <项目路径> 自动落地)")
+
+
+def self_check(wiki_root):
+    banner("自检 (wiki-cli protocol)")
+    rc = os.system(f'WIKI_ROOT="{wiki_root}" python3 "{CLI}" protocol')
+    if rc == 0:
+        print("\n✅ 自检通过:能找到 wiki 根、读到协议、工具版本匹配。")
+    else:
+        print("\n❌ 自检未过:检查 WIKI_ROOT 是否指向 wiki 根(含 AGENTS.md/_vocabulary.md)。")
+    return rc == 0
+
+
+def main():
+    p = argparse.ArgumentParser(description="团队 wiki onboarding 生成器 + 自检")
+    p.add_argument("--platform", choices=["cc", "codex", "cursor", "all"], default="all")
+    p.add_argument("--wiki-root", help="wiki 根(默认 $WIKI_ROOT 或 ~/AI/wiki)")
+    p.add_argument("--write", action="store_true", help="真正写入文件(默认只打印)")
+    p.add_argument("--cursor-project", help="Cursor 项目根(--platform cursor --write 时需要)")
+    args = p.parse_args()
+
+    wiki_root = resolve_wiki_root(args.wiki_root)
+    print(f"wiki-manage: {WIKI_MANAGE}")
+    print(f"wiki 根    : {wiki_root}")
+    print(f"模式       : {'写入' if args.write else '仅打印(加 --write 落地)'}")
+
+    if args.platform in ("cc", "all"):
+        do_cc(wiki_root, args.write)
+    if args.platform in ("codex", "all"):
+        do_codex(wiki_root, args.write)
+    if args.platform in ("cursor", "all"):
+        do_cursor(wiki_root, args.write, args.cursor_project)
+
+    ok = self_check(wiki_root)
+    sys.exit(0 if ok else 1)
+
+
+if __name__ == "__main__":
+    main()

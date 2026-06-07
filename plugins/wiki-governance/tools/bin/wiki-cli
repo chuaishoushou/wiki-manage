@@ -1,0 +1,20 @@
+#!/usr/bin/env python3
+"""wiki-cli 可执行 wrapper:把 tools/src 加入 sys.path 后调用 wiki_core.cli.main。
+
+用法:
+  wiki-cli protocol
+  wiki-cli search "电子围栏"
+  wiki-cli lint --out revisions/2026-06-07-lint.md
+  wiki-cli scan --out docs/security-audit.md
+  wiki-cli suggest "T0119 入园预约改造笔记"
+"""
+import os
+import sys
+
+_SRC = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "src")
+sys.path.insert(0, os.path.abspath(_SRC))
+
+from wiki_core.cli import main  # noqa: E402
+
+if __name__ == "__main__":
+    sys.exit(main())

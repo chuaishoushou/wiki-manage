@@ -1,0 +1,10 @@
+<!-- 由 wiki-init 注册到 ~/.claude/CLAUDE.md(用户级规则/内存)。仅指针,不复制协议正文。占位符由 wiki-init 替换。 -->
+
+## 团队 LLM Wiki(wiki-governance,git 手动安装)
+
+本机连接了一个团队 LLM Wiki(团队知识库),根目录 `{{WIKI_ROOT}}`。涉及团队知识的查询/入库时:
+- 先调 MCP 工具 `wiki_get_protocol` 拉协议 + 新鲜度;查询用 `wiki_search` / `wiki_resolve_route` / `wiki_get_page`。
+- 看团队仓有无待更新知识用 `wiki_changes`(只读);应用更新手动 `git -C "{{WIKI_ROOT}}" pull`。
+- 入库(仅维护者):`wiki_sensitivity` 过敏感闸 → `wiki_suggest_path` → 补 frontmatter → `wiki_validate` 通过后落盘;轻量加页用 `wiki-cli new`。
+
+规则真源:`{{WIKI_ROOT}}/AGENTS.md` + `{{WIKI_ROOT}}/_vocabulary.md`。工具仓:`{{WIKI_MANAGE}}`。

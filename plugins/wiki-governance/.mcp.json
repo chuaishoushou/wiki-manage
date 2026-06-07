@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "wiki": {
+      "command": "python3",
+      "args": ["${CLAUDE_PLUGIN_ROOT}/tools/server/wiki_mcp.py"],
+      "env": {
+        "WIKI_ROOT": "${WIKI_ROOT}"
+      }
+    }
+  }
+}

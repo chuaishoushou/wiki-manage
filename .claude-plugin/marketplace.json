@@ -1,0 +1,20 @@
+{
+  "name": "wiki-governance-marketplace",
+  "owner": {
+    "name": "TEAM_MAINTAINER",
+    "url": "https://example.com/replace-me"
+  },
+  "metadata": {
+    "description": "团队 LLM Wiki 治理插件市场。成员 /plugin marketplace add <此仓 git url> 后安装 wiki-governance。",
+    "version": "0.1.0"
+  },
+  "plugins": [
+    {
+      "name": "wiki-governance",
+      "source": "./plugins/wiki-governance",
+      "description": "按统一规则维护团队 LLM Wiki:ingest/query/lint 工作流 + 只读检索 MCP + 受控词表分类闸。规则真源在团队仓 AGENTS.md/_vocabulary.md,本插件只是 Claude Code 侧投递。",
+      "category": "knowledge",
+      "keywords": ["wiki", "knowledge-base", "llm-wiki", "governance"]
+    }
+  ]
+}

@@ -1,0 +1,7 @@
+# 追加到 ~/.codex/config.toml —— 让 Codex 连同一个只读 wiki MCP。
+# 占位符 {{WIKI_MANAGE}} / {{WIKI_ROOT}} 由 bin/wiki-init 生成时替换。
+
+[mcp_servers.wiki]
+command = "python3"
+args = ["{{WIKI_MANAGE}}/plugins/wiki-governance/tools/server/wiki_mcp.py"]
+env = { WIKI_ROOT = "{{WIKI_ROOT}}" }

@@ -1,0 +1,21 @@
+# Codex skill 行为 sidecar(放在对应 skill 目录,与 SKILL.md 并列)。
+#
+# ⚠️ 重要:SKILL.md 的 frontmatter 行为字段(disable-model-invocation / allowed-tools)
+#    是 Claude Code 专属,Codex 不读。Codex 用本 sidecar 表达同等语义。
+#    ★ 本文件的确切 schema 需在团队实际 Codex 版本上实测核对(见 spec §10);
+#      以下为意图模板,字段名可能需按官方文档调整。
+#
+# 真正的"只读 / 只手动触发"硬保证不依赖本文件,而是:
+#   (1) git 仓只读 role(成员无 push 权)
+#   (2) MCP server 物理不注册写 tool
+# 本 sidecar 只是 best-effort 对齐 invocation 语义。
+
+policy:
+  # wiki-ingest / wiki-lint:写/破坏性,禁止隐式触发,只允许显式调用
+  allow_implicit_invocation: false
+dependencies:
+  tools:
+    - mcp__wiki__wiki_get_protocol
+    - mcp__wiki__wiki_suggest_path
+    - mcp__wiki__wiki_validate
+    - mcp__wiki__wiki_sensitivity

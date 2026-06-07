@@ -1,0 +1,12 @@
+# LLM Wiki 协议指针(放 ~/.codex/AGENTS.md —— 用户级,跨工作区生效)
+
+> 仅指针,不复制协议正文(防漂移)。占位符由 bin/wiki-init 替换。
+
+本机维护一个团队 LLM Wiki,位于 `{{WIKI_ROOT}}`。
+
+在任意工作区中,只要任务涉及该 wiki 的查询或入库:
+1. 先调 MCP 工具 `wiki_get_protocol` 拉取协议摘要 + 版本 + 新鲜度(或直接读 `{{WIKI_ROOT}}/AGENTS.md` 与 `{{WIKI_ROOT}}/_vocabulary.md`)。
+2. 查询走 `wiki_resolve_route` / `wiki_search`。
+3. 入库(仅维护者)走 `wiki_suggest_path` + `wiki_validate` 后用编辑器落盘;低置信入 `staging/`。
+
+规则真源:`{{WIKI_ROOT}}/AGENTS.md` + `{{WIKI_ROOT}}/_vocabulary.md`。

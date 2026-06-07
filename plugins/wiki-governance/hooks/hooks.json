@@ -1,0 +1,14 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "(python3 \"${CLAUDE_PLUGIN_ROOT}/tools/bin/wiki-cli\" protocol 2>/dev/null && echo \"[wiki] 查知识 /wiki-query · 同步 /wiki-sync · 全部能力 /wiki-help\") || echo \"[wiki] 未连接团队 wiki:请设 WIKI_ROOT 或跑 wiki-cli init(见 onboarding)\""
+          }
+        ]
+      }
+    ]
+  }
+}
