@@ -1,11 +1,11 @@
 {
   "name": "wiki-governance-marketplace",
   "owner": {
-    "name": "TEAM_MAINTAINER",
-    "url": "https://example.com/replace-me"
+    "name": "chuaishoushou",
+    "url": "https://github.com/chuaishoushou"
   },
   "metadata": {
-    "description": "团队 LLM Wiki 治理插件市场。成员 /plugin marketplace add <此仓 git url> 后安装 wiki-governance。",
+    "description": "团队 LLM Wiki 治理插件市场。成员 /plugin marketplace add chuaishoushou/wiki-manage 后安装 wiki-governance。",
     "version": "0.1.0"
   },
   "plugins": [

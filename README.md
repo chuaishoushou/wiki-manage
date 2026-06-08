@@ -37,7 +37,7 @@
 
 | 平台 | 安装体验 |
 |---|---|
-| **Claude Code** | git clone + `wiki-init`(`claude mcp add` 注册 MCP + skill 符号链接 + 规则指针)。**不用市场**,见 [INSTALL.md](docs/INSTALL.md) |
+| **Claude Code** | 插件市场一个链接自动装(`/plugin marketplace add chuaishoushou/wiki-manage` → `/plugin install`),或命令行 `wiki-init`;见 [INSTALL.md](docs/INSTALL.md) |
 | **Codex** | **没有一键安装** —— "装"= 手配 `~/.codex/config.toml` 的 MCP + 用户级指针 |
 | **Cursor** | MCP-only:手配 `.cursor/mcp.json`,每个新项目要重配一次 |
 

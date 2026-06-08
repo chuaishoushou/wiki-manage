@@ -30,6 +30,9 @@ def _resolve_root(args) -> str:
                              "  · 还没有 wiki?新建一个:wiki-cli init <目录>\n"
                              "  · 已 clone 团队库?设 WIKI_ROOT 指向它:export WIKI_ROOT=/路径/到/team-wiki\n")
         sys.exit(2)
+    if source == "personal-fallback":
+        sys.stderr.write("⚠ 未设 WIKI_ROOT,已回退到个人库 ~/AI/wiki —— 若要用团队库,"
+                         "请 export WIKI_ROOT 或把 team-wiki clone 到 ~/AI/team-wiki\n")
     return root
 
 
@@ -154,8 +157,10 @@ def cmd_protocol(args):
     src_label = {
         "env": "WIKI_ROOT 环境变量 ✅",
         "start": "--root 参数 ✅",
+        "team-default": "约定团队路径 ~/AI/team-wiki ✅(你没设 WIKI_ROOT,已用约定团队库)",
         "cwd": "⚠ 从当前目录上溯找到(你没设 WIKI_ROOT)",
-        "fallback": "⚠ 默认兜底 ~/AI/wiki(你没设 WIKI_ROOT,这可能不是团队库!请 export WIKI_ROOT)",
+        "personal-fallback": "⚠ 默认兜底 ~/AI/wiki 个人库(你没设 WIKI_ROOT,这可能不是团队库!"
+                             "请 export WIKI_ROOT 或把 team-wiki clone 到 ~/AI/team-wiki)",
     }.get(source, source)
     print(f"连接来源: {src_label}")
     if branch:

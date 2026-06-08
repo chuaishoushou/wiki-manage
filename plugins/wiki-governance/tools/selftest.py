@@ -231,6 +231,50 @@ def mcp_checks(root):
     check("MCP 畸形消息后仍存活", bool(survive) and "result" in survive)
 
 
+def root_resolution_checks():
+    """单元测试 WIKI_ROOT 解析优先级链(不依赖真实 ~/AI 库,monkeypatch 兜底常量)。
+
+    覆盖本次上线的关键修复:env 未设时优先 team-default(团队库)而非 personal-fallback
+    (个人库);env 配错时 env-invalid 硬失败、绝不静默回退。
+    """
+    if SRC not in sys.path:
+        sys.path.insert(0, SRC)
+    from wiki_core import repo
+    orig_team, orig_personal = repo.TEAM_WIKI_FALLBACK, repo.PERSONAL_WIKI_FALLBACK
+    orig_env, orig_cwd = os.environ.get("WIKI_ROOT"), os.getcwd()
+    with tempfile.TemporaryDirectory() as team, \
+            tempfile.TemporaryDirectory() as personal, \
+            tempfile.TemporaryDirectory() as envroot, \
+            tempfile.TemporaryDirectory() as neutral:
+        for d in (team, personal, envroot):
+            open(os.path.join(d, "AGENTS.md"), "w").close()  # 造合法 wiki 根标记
+        try:
+            os.chdir(neutral)  # 隔离 cwd 上溯,避免命中真实库
+            repo.TEAM_WIKI_FALLBACK, repo.PERSONAL_WIKI_FALLBACK = team, personal
+            os.environ.pop("WIKI_ROOT", None)
+            r, s = repo.find_wiki_root_verbose()
+            check("解析链:env 未设→team-default(不落个人库)",
+                  s == "team-default" and r == os.path.abspath(team), f"got source={s}")
+            repo.TEAM_WIKI_FALLBACK = os.path.join(team, "absent")
+            r, s = repo.find_wiki_root_verbose()
+            check("解析链:team 缺→personal-fallback",
+                  s == "personal-fallback" and r == os.path.abspath(personal), f"got source={s}")
+            os.environ["WIKI_ROOT"] = envroot
+            r, s = repo.find_wiki_root_verbose()
+            check("解析链:env 合法→env", s == "env", f"got source={s}")
+            os.environ["WIKI_ROOT"] = os.path.join(envroot, "bad")
+            r, s = repo.find_wiki_root_verbose()
+            check("解析链:env 非法→env-invalid 硬失败(不静默回退)",
+                  s == "env-invalid" and r is None, f"got source={s}")
+        finally:
+            repo.TEAM_WIKI_FALLBACK, repo.PERSONAL_WIKI_FALLBACK = orig_team, orig_personal
+            if orig_env is None:
+                os.environ.pop("WIKI_ROOT", None)
+            else:
+                os.environ["WIKI_ROOT"] = orig_env
+            os.chdir(orig_cwd)
+
+
 def main():
     print("=" * 60)
     print("wiki-manage 自测")
@@ -242,6 +286,9 @@ def main():
                        capture_output=True, text=True, cwd=HERE)
     last = (r.stderr.strip().splitlines() or ["?"])[-1]
     check("unittest 全套", r.returncode == 0, last)
+
+    print("\n[1b/6] WIKI_ROOT 解析优先级链(团队库优先于个人库兜底)")
+    root_resolution_checks()
 
     # 2-4) 端到端(临时 fixture)
     with tempfile.TemporaryDirectory(prefix="wiki-selftest-") as root:

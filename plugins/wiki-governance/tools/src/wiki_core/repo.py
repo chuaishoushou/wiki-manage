@@ -11,14 +11,27 @@ ROOT_MARKERS = ("AGENTS.md", "_routes.md", "_vocabulary.md")
 # 遍历页面时排除的目录
 EXCLUDE_DIRS = {".git", ".obsidian", ".idea", ".claude", "raw", "node_modules"}
 
+# 约定兜底路径:WIKI_ROOT 未注入时(典型:GUI/Desktop 启动不继承 shell env)的安全兜底。
+# team-default 排在 personal 之前,确保团队成员丢 env 时落到团队库而非维护者私有个人库。
+# 测试可 monkeypatch 这两个常量。
+TEAM_WIKI_FALLBACK = os.path.expanduser("~/AI/team-wiki")
+PERSONAL_WIKI_FALLBACK = os.path.expanduser("~/AI/wiki")
+
 
 def find_wiki_root_verbose(start: Optional[str] = None) -> Tuple[Optional[str], str]:
     """查找 wiki 根并返回来源,便于成员自查"我连到的是哪个库"。
 
-    返回 (root, source),source ∈ {start, env, env-invalid, cwd, fallback, none}。
-    优先级:显式 start > $WIKI_ROOT > 从 cwd 向上找标记 > ~/AI/wiki 兜底。
-    关键安全点:显式配了 WIKI_ROOT 却无效 → 返回 (None, 'env-invalid'),
-    不静默回退,避免团队成员配错路径时悄悄拿到维护者本机私有库。
+    返回 (root, source),source ∈
+        {start, env, env-invalid, team-default, cwd, personal-fallback, none}。
+    优先级:
+      1. 显式 start(CLI --root / 调用方传入)
+      2. $WIKI_ROOT 非空:合法→env;非法→(None,'env-invalid') 硬失败,绝不静默回退
+      3. 约定团队路径 ~/AI/team-wiki(TEAM_WIKI_FALLBACK):GUI/Desktop 启动丢 env 时的
+         安全兜底,落到团队库而非个人库 —— 这是"零环境变量新用户/GUI 也能连上团队库"的关键
+      4. 从 cwd 向上找标记(便利路径,但 server 端会对此 source 发 ⚠)
+      5. 个人库 ~/AI/wiki(PERSONAL_WIKI_FALLBACK):向后兼容个人库用户,server 端发 ⚠
+    关键安全点:显式配了 WIKI_ROOT 却无效 → (None,'env-invalid'),不静默回退,
+    避免团队成员配错路径时悄悄拿到别的库。
     """
     if start:
         cand = os.path.abspath(start)
@@ -32,6 +45,10 @@ def find_wiki_root_verbose(start: Optional[str] = None) -> Tuple[Optional[str], 
             return cand, "env"
         return None, "env-invalid"
 
+    # 约定团队路径:env 未注入(典型 GUI/Desktop 启动)时优先落团队库,不落个人库
+    if _is_root(TEAM_WIKI_FALLBACK):
+        return TEAM_WIKI_FALLBACK, "team-default"
+
     cur = os.path.abspath(start or os.getcwd())
     while True:
         if _is_root(cur):
@@ -41,9 +58,8 @@ def find_wiki_root_verbose(start: Optional[str] = None) -> Tuple[Optional[str], 
             break
         cur = parent
 
-    fallback = os.path.expanduser("~/AI/wiki")
-    if _is_root(fallback):
-        return fallback, "fallback"
+    if _is_root(PERSONAL_WIKI_FALLBACK):
+        return PERSONAL_WIKI_FALLBACK, "personal-fallback"
     return None, "none"
 
 

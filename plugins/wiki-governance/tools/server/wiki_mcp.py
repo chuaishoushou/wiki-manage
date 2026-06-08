@@ -26,7 +26,11 @@ DEFAULT_PROTOCOL = "2024-11-05"
 KNOWN_PROTOCOLS = {"2024-11-05", "2025-03-26", "2025-06-18"}
 SERVER_INFO = {"name": "wiki-governance", "version": "0.1.0"}
 
-ROOT, ROOT_SOURCE = repo.find_wiki_root_verbose(os.environ.get("WIKI_ROOT"))
+# .mcp.json 用 "${WIKI_ROOT:-}":WIKI_ROOT 未设时这里收到空串。
+# 不把 env 值当 start 传(否则合法 env 会被如实报成 source='start');让 find_wiki_root_verbose
+# 内部读 WIKI_ROOT 走 env 分支 —— 合法→'env'、空串→落 team-default(~/AI/team-wiki)兜底、
+# 配错→'env-invalid' 硬失败,绝不静默连个人库。
+ROOT, ROOT_SOURCE = repo.find_wiki_root_verbose()
 
 
 def _vocab():
@@ -36,12 +40,18 @@ def _vocab():
 def _staleness_note():
     if not ROOT:
         return "wiki 根未找到"
+    # root_source 下沉:让每个带 staleness 的工具返回都能暴露"连的不是团队库",
+    # 无需 AI 主动调 get_protocol(GUI 丢 env 落到 cwd/个人库时尤其重要)。
+    prefix = ""
+    if ROOT_SOURCE not in ("env", "start", "team-default"):
+        prefix = (f"⚠ root_source={ROOT_SOURCE}:当前连的可能不是团队库 —— "
+                  "请设 WIKI_ROOT 或把 team-wiki clone 到 ~/AI/team-wiki · ")
     behind, why = repo.git_behind_count(ROOT)
     if behind is None:
-        return f"新鲜度未知({why})"
+        return prefix + f"新鲜度未知({why})"
     if behind == 0:
-        return "本地与 origin 同步"
-    return f"⚠ 本地落后 origin {behind} 个 commit,建议先 git pull / 用 /wiki-sync"
+        return prefix + "本地与 origin 同步"
+    return prefix + f"⚠ 本地落后 origin {behind} 个 commit,建议先 git pull / 用 /wiki-sync"
 
 
 # ---------- tool 实现 ----------
@@ -61,13 +71,13 @@ def _agents_md_excerpt(limit=60):
 def t_get_protocol(_args):
     vocab = _vocab()
     warnings = []
-    if ROOT_SOURCE in ("fallback", "cwd"):
-        warnings.append("你没设 WIKI_ROOT,当前连的是兜底/上溯库,可能不是团队 wiki —— 请显式设 WIKI_ROOT")
+    if ROOT_SOURCE in ("personal-fallback", "cwd"):
+        warnings.append("你没设 WIKI_ROOT,当前连的是兜底/上溯库,可能不是团队 wiki —— 请显式设 WIKI_ROOT 或把 team-wiki clone 到 ~/AI/team-wiki")
     if vocab.parse_error:
         warnings.append(f"_vocabulary.md 解析失败({vocab.parse_error}),分类闭集已失效")
     return {
         "root": ROOT,
-        "root_source": ROOT_SOURCE,  # env / cwd / fallback / env-invalid:成员自查连到的是哪个库
+        "root_source": ROOT_SOURCE,  # env/start/team-default/cwd/personal-fallback/env-invalid:成员自查连到的是哪个库
         "warnings": warnings,
         "repo_protocol_version": vocab.protocol_version,
         "tool_supported_version": SUPPORTED_PROTOCOL_VERSION,

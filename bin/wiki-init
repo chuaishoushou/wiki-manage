@@ -12,6 +12,7 @@
 """
 import argparse
 import os
+import shutil
 import sys
 
 WIKI_MANAGE = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
@@ -23,7 +24,12 @@ MARKER = "# === wiki-governance (auto by wiki-init) ==="
 def render(rel_path, wiki_root):
     with open(os.path.join(ADAPTERS, rel_path), "r", encoding="utf-8") as f:
         text = f.read()
-    return text.replace("{{WIKI_MANAGE}}", WIKI_MANAGE).replace("{{WIKI_ROOT}}", wiki_root)
+    # {{PYTHON}}=当前解释器绝对路径(摆脱对 PATH 里 python3 的依赖,GUI/精简 PATH 启动也稳);
+    # 反斜杠转正斜杠,保证写进 TOML/JSON 不破坏转义,Windows 上正斜杠路径同样可用。
+    py = sys.executable.replace("\\", "/")
+    return (text.replace("{{WIKI_MANAGE}}", WIKI_MANAGE)
+                .replace("{{WIKI_ROOT}}", wiki_root)
+                .replace("{{PYTHON}}", py))
 
 
 def resolve_wiki_root(arg):
@@ -32,6 +38,10 @@ def resolve_wiki_root(arg):
     env = os.environ.get("WIKI_ROOT")
     if env:
         return os.path.abspath(os.path.expanduser(env))
+    # 团队 onboarding:env 未设时优先约定团队路径,避免把成员钉到维护者个人库
+    team = os.path.expanduser("~/AI/team-wiki")
+    if os.path.isdir(team):
+        return team
     return os.path.expanduser("~/AI/wiki")
 
 
@@ -56,6 +66,19 @@ def _append_with_marker(path, content):
     print(f"  ✅ 写入 {path}")
 
 
+def _link_or_copy(src, dst, label):
+    """优先符号链接(git pull 即更新);Windows 无权限/无开发者模式等 OSError 时回退复制。"""
+    try:
+        os.symlink(src, dst)
+        print(f"  ③ ✅ 链接 {label}")
+    except OSError:
+        if os.path.isdir(src):
+            shutil.copytree(src, dst)
+        else:
+            shutil.copy2(src, dst)
+        print(f"  ③ ✅ 复制 {label}(符号链接不可用→已复制;以后 git pull 后需重跑 wiki-init 更新)")
+
+
 def do_cc(wiki_root, write):
     banner("Claude Code(git 手动安装,不用市场)")
     server = os.path.join(WIKI_MANAGE, "plugins", "wiki-governance", "tools", "server", "wiki_mcp.py")
@@ -63,7 +86,7 @@ def do_cc(wiki_root, write):
     cmds_src = os.path.join(WIKI_MANAGE, "plugins", "wiki-governance", "commands")
     ptr = render("cc/CLAUDE.md.pointer", wiki_root)
     # 注意:name 必须在 -e 之前(-e 是可变参数,否则会把 name 当成 env 吞掉)
-    mcp_cmd = f'claude mcp add -s user wiki -e WIKI_ROOT="{wiki_root}" -- python3 "{server}"'
+    mcp_cmd = f'claude mcp add -s user wiki -e WIKI_ROOT="{wiki_root}" -- "{sys.executable}" "{server}"'
     if not write:
         print("① 注册 MCP(只读工具,绕开市场):")
         print(f"   {mcp_cmd}")
@@ -85,8 +108,7 @@ def do_cc(wiki_root, write):
         if os.path.lexists(dst):
             print(f"  ③ 跳过已存在 skill {s}")
         else:
-            os.symlink(os.path.join(skills_src, s), dst)
-            print(f"  ③ ✅ 链接 skill {s}")
+            _link_or_copy(os.path.join(skills_src, s), dst, f"skill {s}")
     cmd_dir = os.path.expanduser("~/.claude/commands")
     os.makedirs(cmd_dir, exist_ok=True)
     for c in os.listdir(cmds_src):
@@ -96,8 +118,7 @@ def do_cc(wiki_root, write):
         if os.path.lexists(dst):
             print(f"  ③ 跳过已存在命令 {c}")
         else:
-            os.symlink(os.path.join(cmds_src, c), dst)
-            print(f"  ③ ✅ 链接命令 {c}")
+            _link_or_copy(os.path.join(cmds_src, c), dst, f"命令 {c}")
     print("  ④ 重启 Claude Code 生效")
 
 
@@ -146,7 +167,7 @@ def do_cursor(wiki_root, write, project):
 
 def self_check(wiki_root):
     banner("自检 (wiki-cli protocol)")
-    rc = os.system(f'WIKI_ROOT="{wiki_root}" python3 "{CLI}" protocol')
+    rc = os.system(f'WIKI_ROOT="{wiki_root}" "{sys.executable}" "{CLI}" protocol')
     if rc == 0:
         print("\n✅ 自检通过:能找到 wiki 根、读到协议、工具版本匹配。")
     else:

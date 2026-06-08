@@ -35,9 +35,9 @@
 
 ## 落到工具(已支持,无需额外功能)
 ```bash
-git clone <团队仓 url> ~/team-wiki        # 团队库:只读消费
+git clone https://github.com/chuaishoushou/team-wiki.git ~/AI/team-wiki        # 团队库:只读消费
 wiki-cli init ~/my-wiki --domains 笔记     # 个人库:另开一个
-wiki-cli --root ~/team-wiki  search "..."  # 查团队
+wiki-cli --root ~/AI/team-wiki  search "..."  # 查团队
 wiki-cli --root ~/my-wiki    new concept x --domain 笔记   # 往个人库轻量加页
 ```
 MCP(模型上下文协议)侧配两条:`wiki-team`(WIKI_ROOT 指团队 clone,只读消费)、`wiki-personal`(WIKI_ROOT 指个人库,可写)。
