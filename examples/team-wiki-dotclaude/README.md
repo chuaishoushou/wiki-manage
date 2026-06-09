@@ -1,14 +1,8 @@
 # team-wiki/.claude/ 模板
 
-把本目录的两个文件放到**团队内容仓**根的 `.claude/` 下(即 `team-wiki/.claude/settings.json` 与 `team-wiki/.claude/CLAUDE.md`)。
-
-## settings.json
-让团队成员的 Claude Code 在信任本仓后,自动认识 marketplace 并启用 `flux-wiki` 插件。
-
-- `settings.json` 已填 `chuaishoushou/wiki-manage`;若你 fork 了自己的工具仓,改成你的 `owner/repo`。
-- 非 GitHub(GitLab/自建)按 Claude Code 当前版本的 `extraKnownMarketplaces` source 语法调整(`source` 可为 `github` / `git` / 本地路径)。
-- ⚠ 成员首次进仓需接受 workspace trust 对话框,才会被提示安装插件。
-- ⚠ 该字段 schema 随 CC 版本演进,落地前在团队实际 CC 版本上验证一次(spec §10)。
+把本目录的 `CLAUDE.md` 放到**团队内容仓**根的 `.claude/` 下(即 `team-wiki/.claude/CLAUDE.md`)。
 
 ## CLAUDE.md
-只做"先读 AGENTS.md/_vocabulary.md"的指针,不复制协议正文(防 CLAUDE.md↔plugin 漂移)。
+只做"先读 `AGENTS.md` / `_vocabulary.md`"的指针,不复制协议正文(防 CLAUDE.md ↔ 库漂移)。作用:团队成员在 `team-wiki` 目录里打开 Claude Code 时,AI 知道"这是团队 wiki、先去读协议真源",而不是凭空猜。
+
+> 安装工具本身(skills / `wiki-cli` / 三平台规则指针)走仓库根的 `./install.sh`,**不依赖插件市场**。本模板只是给团队内容仓额外加一个 `.claude` 指针,与安装相互独立、可选。

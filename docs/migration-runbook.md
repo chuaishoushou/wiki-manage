@@ -65,9 +65,8 @@ chmod +x ~/AI/wiki/.git/hooks/pre-commit
 commit 时自动跑 `wiki-cli lint --staged`,frontmatter/敏感度不过不让提交。本地、不影响只读成员。
 
 ### 9. 团队装载
-- CC 成员:`team-wiki/.claude/settings.json` 配 `extraKnownMarketplaces`+`enabledPlugins`(模板见 examples/),信任文件夹后被提示装。
-- Codex/Cursor 成员:`bin/wiki-init --write` 生成配置。
-- 见 [onboarding.md](onboarding.md)。
+- 所有成员(CC / Codex / Cursor 一视同仁):`git clone …/wiki-manage && cd wiki-manage && ./install.sh`,交互配好个人库 + 团队仓,三平台自动落地(不走插件市场)。
+- 见 [onboarding.md](onboarding.md) / [INSTALL.md](INSTALL.md)。
 
 ## 本次(用户指示)实际执行范围
 ✅ 1 自测 · 2 体检 · (4 scan 只读可跑) · 7 协议抽离(可选) · 工具/文档全就绪

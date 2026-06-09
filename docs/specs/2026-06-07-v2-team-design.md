@@ -6,6 +6,8 @@
 **取代**:[v1.0-skeleton](2026-05-25-v1-design.md)(本机 Web 服务 + 砍团队仓 + 只服务个人 —— 与团队共享目标根本冲突,已标记 superseded)
 **来源**:14 智能体工作流(5 研究 + 3 方案合成 + 5 维对抗验证)+ 人工核验
 
+> 🔄 **更新(2026-06-10)**:本文涉及的**插件市场方案**(`marketplace.json` / `plugin.json` / `/plugin marketplace add` / `codex plugin install` / `extraKnownMarketplaces`)**已废弃,相关清单文件已从仓库移除**。原因:任何 AI agent 看到这些清单会把本仓误当"原生插件"去走市场流程并卡死(Codex 实测 plugin.json 校验失败)。安装统一为唯一 git 入口 `git clone` + `./install.sh`(交互配个人库 + 团队仓双库)。下文涉及"CC 投递外壳 / plugin manifest / 三平台市场"的设计推理仅作历史背景,**实现以 [README](../../README.md) / [INSTALL](../INSTALL.md) 为准**。
+
 ---
 
 ## 0. 为什么推倒 v1

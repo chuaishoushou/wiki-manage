@@ -5,8 +5,7 @@ alwaysApply: false
 
 # 团队 LLM Wiki(Cursor 适配)
 
-> 占位符由 bin/wiki-init 替换(路 B / 规则指针版)。本规则只作 @-mention 便利;知识库是本地 markdown,**直接读 + 调 wiki-cli**。
-> ⚠ 同步提示:本规则正文(涉及 wiki 各步)与插件版 `plugins/flux-wiki/rules/wiki.mdc` 语义一致,改正文请同步那份;两份仅路径机制不同(此处 `{{占位符}}` vs 插件版 `${*_PLUGIN_ROOT}`)。
+> 占位符由 bin/wiki-init 在安装时替换。本规则只作 @-mention 便利;知识库是本地 markdown,**直接读 + 调 wiki-cli**。
 
 本项目可访问两个 LLM Wiki:**个人库** `{{WIKI_ROOT}}`(日常读写主线)与**团队仓** `{{TEAM_ROOT}}`(只读知识源,团队仓本地 clone)。
 
