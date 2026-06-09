@@ -21,10 +21,15 @@
 
 ## 🚀 团队成员安装(一个链接,一条命令)
 
-**只需要这一个链接。** clone 后跑**同一条命令**,脚本自动探测本机装了哪些工具(Claude / Codex / Cursor),挨个配好:
+**只需要这一个链接。** clone 后跑**一条命令**,脚本自动探测本机装了哪些工具(Claude / Codex / Cursor),挨个配好:
 
 ```bash
+# macOS / Linux
 git clone https://github.com/chuaishoushou/wiki-manage && cd wiki-manage && ./install.sh
+```
+```bat
+REM Windows(cmd 或 PowerShell)
+git clone https://github.com/chuaishoushou/wiki-manage && cd wiki-manage && install.cmd
 ```
 
 - **Claude / Codex** → 自动配好(写 `~/.claude/CLAUDE.md` / `~/.codex/AGENTS.md` 规则指针 + Claude 软链 skills/命令),重启客户端即生效。

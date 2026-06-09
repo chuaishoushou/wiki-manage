@@ -34,7 +34,7 @@ echo 'export WIKI_ROOT="$HOME/AI/team-wiki"' >> ~/.zshrc && export WIKI_ROOT="$H
 
 ## 第 2 步:按平台安装
 
-> **最快:一条命令搞定全部。** 在 `wiki-manage` 目录里跑 **`./install.sh`** —— 自动探测本机的 Claude / Codex / Cursor 并配好(Cursor 会打印 User Rules 块供你粘进 设置→Rules)。下面是各平台的细节/手动版,排障、只装单个工具、或想走插件市场时看。
+> **最快:一条命令搞定全部。** 在 `wiki-manage` 目录里跑 —— macOS/Linux: **`./install.sh`**;Windows: **`install.cmd`**。自动探测本机的 Claude / Codex / Cursor 并配好(Cursor 会打印 User Rules 块供你粘进 设置→Rules)。下面是各平台的细节/手动版,排障、只装单个工具、或想走插件市场时看。
 
 ### Claude Code —— 主推 wiki-init(零中断),插件市场为备选
 
@@ -145,8 +145,11 @@ rm ~/.claude/commands/wiki-*.md   # wiki-sync.md / wiki-sync-team.md / wiki-help
 
 **跨平台一致的内核** = wiki-cli + 库本地 .md,三家结果一致:AI 直接读本地 .md 查知识,用确定性的 CLI 做协议/检索/校验。
 
-## Windows 已知限制
+## Windows 支持
 
-- 命令里的 `python3` 在标准 Windows(python.org 安装器只给 `python`/`py`)可能找不到 → 装 Microsoft Store 版 Python(自带 `python3` 别名),或为 `python` 建一个 `python3` 别名。`wiki-init` 生成规则指针时已改用当前解释器的绝对路径,规避该问题。
-- 路 B 链接 skill/命令用符号链接;Windows 非管理员/未开开发者模式时会自动回退为**复制**(代价:`git pull` 后需重跑 `wiki-init` 才更新)。
-- 环境变量:PowerShell 用 `setx WIKI_ROOT "%USERPROFILE%\AI\team-wiki"`。
+- **一键安装走 `install.cmd`**(不要用 `./install.sh` —— 那是 bash,Windows 原生 cmd/PowerShell 跑不了)。`install.cmd` 自动找 `py`/`python`、自动探测三平台,等价于 mac/Linux 的 `./install.sh`。
+- **Python**:装 Python 3.8+(python.org 勾选 *Add to PATH*,或 Microsoft Store 版)。命令行直接用 `py` 或 `python`(不必是 `python3`);`install.cmd` 与 `wiki-init` 内部都用当前解释器绝对路径,不依赖 `python3` 这个名字。
+- **符号链接**:装 Claude skill/命令时优先软链;Windows 非管理员 / 未开**开发者模式**会自动回退为**复制**(代价:`git pull` 后需重跑 `install.cmd` 才更新)。开了开发者模式则软链可用,`git pull` 即时生效。
+- **库路径 / 环境变量**:`install.cmd D:\path\to\team-wiki` 直接传;或先 `setx WIKI_ROOT "%USERPROFILE%\AI\team-wiki"`(setx 对新开的终端生效)。默认会自动探测 `%USERPROFILE%\AI\team-wiki`。
+- **Cursor**:与 mac 一致 —— `install.cmd` 打印 User Rules 文本,粘进 设置→Rules→User Rules 一次。
+- 路径分隔符、`~`、`%LOCALAPPDATA%` 等已在工具内用 `os.path` / `expanduser` / `expandvars` 处理,Windows 正斜杠/反斜杠混用均可。

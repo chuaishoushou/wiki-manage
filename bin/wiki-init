@@ -15,6 +15,7 @@ CC 额外把 skill + slash 命令链接进 ~/.claude/。默认只打印(安全);
 import argparse
 import os
 import shutil
+import subprocess
 import sys
 
 WIKI_MANAGE = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
@@ -60,9 +61,13 @@ def has_codex():
 
 
 def has_cursor():
-    return (os.path.isdir("/Applications/Cursor.app")
-            or os.path.isdir(os.path.expanduser("~/.cursor"))
-            or shutil.which("cursor") is not None)
+    # 跨平台探测:macOS app / 用户配置目录(各平台) / Windows 安装目录 / PATH 里的 cursor CLI
+    candidates = [
+        "/Applications/Cursor.app",                              # macOS
+        os.path.expanduser("~/.cursor"),                         # 各平台用户配置(Windows 同样有效)
+        os.path.expandvars(r"%LOCALAPPDATA%\Programs\cursor"),   # Windows(非 Windows 上 %VAR% 不展开→不命中)
+    ]
+    return any(os.path.isdir(p) for p in candidates) or shutil.which("cursor") is not None
 
 
 def _import_repo():
@@ -151,9 +156,7 @@ def do_cc(wiki_root, write):
     if not write:
         print("① 写规则指针到 ~/.claude/CLAUDE.md(告诉 AI:库在哪 / 用 wiki-cli / 直接读库文件):\n")
         print(ptr)
-        print("② 装 skill + slash 命令(符号链接,git pull 即更新):")
-        print(f"   for s in wiki-ingest wiki-query wiki-lint; do ln -sfn \"{skills_src}/$s\" ~/.claude/skills/$s; done")
-        print(f"   mkdir -p ~/.claude/commands; for c in {cmds_src}/wiki-*.md; do ln -sfn \"$c\" ~/.claude/commands/; done")
+        print("② 把 skill(wiki-ingest/query/lint)与命令软链/复制进 ~/.claude/(跨平台,Windows 无开发者模式时自动改复制)")
         print("③ 重启 Claude Code")
         print("(加 --write 自动执行 ①②;或直接走插件市场 /plugin marketplace add chuaishoushou/wiki-manage)")
         return
@@ -212,7 +215,9 @@ def do_cursor(wiki_root, write, project):
 
 def self_check(wiki_root):
     banner("自检 (wiki-cli protocol)")
-    rc = os.system(f'WIKI_ROOT="{wiki_root}" "{sys.executable}" "{CLI}" protocol')
+    # 跨平台:用 subprocess + env 注入 WIKI_ROOT,不能用 'VAR=val cmd'(那是 POSIX shell 语法,Windows cmd 非法)
+    env = dict(os.environ, WIKI_ROOT=wiki_root)
+    rc = subprocess.call([sys.executable, CLI, "protocol"], env=env)
     if rc == 0:
         print("\n✅ 自检通过:能找到 wiki 根、读到协议、工具版本匹配。")
     else:

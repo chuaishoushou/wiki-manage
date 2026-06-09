@@ -16,7 +16,10 @@ set -uo pipefail
 
 HERE="$(cd "$(dirname "$0")" && pwd)"
 
-if ! command -v python3 >/dev/null 2>&1; then
+# 找 Python:优先 python3,回退 python(部分系统/Git Bash 只有 python)
+PY=python3
+command -v python3 >/dev/null 2>&1 || PY=python
+if ! command -v "$PY" >/dev/null 2>&1; then
   echo "❌ 需要 python3(≥3.8)。macOS: brew install python3 / Ubuntu: sudo apt install python3" >&2
   exit 1
 fi
@@ -28,4 +31,4 @@ elif [ "${WIKI_ROOT:-}" != "" ]; then
   ARGS+=(--wiki-root "$WIKI_ROOT")
 fi
 
-exec python3 "$HERE/bin/wiki-init" "${ARGS[@]}"
+exec "$PY" "$HERE/bin/wiki-init" "${ARGS[@]}"
