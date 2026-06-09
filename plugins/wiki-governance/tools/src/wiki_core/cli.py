@@ -135,6 +135,18 @@ def cmd_protocol(args):
     vocab = load_vocab(root)
     behind, why = repo.git_behind_count(root)
     branch, commit = repo.git_head_info(root)
+    version_ok = vocab.protocol_version <= SUPPORTED_PROTOCOL_VERSION
+    # 把"连接来源不可靠 / 版本落后 / 词表解析失败"等统一收成中文告警串,
+    # 供调用方(如 wiki_get_protocol)直接展示;env/team-default 等正常路径为空列表。
+    warnings: List[str] = []
+    if source == "personal-fallback":
+        warnings.append("未设 WIKI_ROOT,已兜底到个人库 ~/AI/wiki —— 这可能不是团队库,请 export WIKI_ROOT 或把 team-wiki clone 到 ~/AI/team-wiki")
+    elif source == "cwd":
+        warnings.append("未设 WIKI_ROOT,wiki 根是从当前目录上溯找到的 —— 请显式 export WIKI_ROOT 锁定连接的库")
+    if not version_ok:
+        warnings.append(f"工具协议版本落后:仓库 v{vocab.protocol_version} > 工具支持 v{SUPPORTED_PROTOCOL_VERSION},请升级工具")
+    if vocab.parse_error:
+        warnings.append(f"_vocabulary.md 的 JSON 块解析失败,分类闭集已失效:{vocab.parse_error}")
     payload = {
         "root": root,
         "root_source": source,
@@ -142,13 +154,14 @@ def cmd_protocol(args):
         "commit": commit,
         "repo_protocol_version": vocab.protocol_version,
         "tool_supported_version": SUPPORTED_PROTOCOL_VERSION,
-        "version_ok": vocab.protocol_version <= SUPPORTED_PROTOCOL_VERSION,
+        "version_ok": version_ok,
         "behind_commits": behind,
         "behind_note": why,
         "domains": vocab.domain_slugs,
         "page_types": vocab.page_types,
         "sensitivity_levels": vocab.data.get("sensitivity_levels", []),
         "vocabulary_parse_error": vocab.parse_error,
+        "warnings": warnings,
     }
     if args.json:
         _emit(payload, True)
@@ -264,7 +277,9 @@ def cmd_validate(args):
         sys.stderr.write(f"错误:文件不存在 {args.path}\n")
         sys.exit(1)
     meta, _, has_fm = frontmatter.read_page(full)
-    issues = validate_mod.validate_page(meta, has_fm, repo.rel_path(root, full), vocab)
+    # full 已被 resolve_in_root 经 os.path.realpath 解析(macOS 下 /tmp→/private/tmp);
+    # rel_path 的基准 root 也要 realpath,否则算出 ../../private/var 长串。
+    issues = validate_mod.validate_page(meta, has_fm, repo.rel_path(os.path.realpath(root), full), vocab)
     if args.json:
         _emit({"path": args.path, "issues": issues}, True)
     else:
@@ -310,6 +325,23 @@ def cmd_suggest(args):
 def cmd_scan(args):
     root = _resolve_root(args)
     vocab = load_vocab(root)
+    # 文本模式:对一段传入文本(--text 或 stdin)做敏感度扫描,不扫全库。
+    # 入库前先过敏感闸常用此路径(配合 _vocabulary.md 的 sensitivity_rules)。
+    text = getattr(args, "text", None)
+    if text is not None:
+        if text == "-" or text == "":
+            text = sys.stdin.read()
+        res = sens_mod.scan_text(text, vocab)
+        if args.json:
+            _emit(res, True)
+        else:
+            kinds = ",".join(k for k, v in res["hits"].items() if v) or "-"
+            flag = "🔴" if res["any_hit"] else "·"
+            print(f"{flag} any_hit={res['any_hit']}  建议={res['suggested']}  命中={kinds}")
+            for k, v in res["hits"].items():
+                if v:
+                    print(f"   {k}: {', '.join(v)}")
+        return
     # 安全审计【默认覆盖 archive/log/revisions】(spec §3.1 点名的永久固化泄密点);--no-archive 才退回 active
     include_archive = not args.no_archive
     report = sens_mod.scan_repo(root, vocab, include_archive=include_archive)
@@ -509,8 +541,9 @@ def build_parser() -> argparse.ArgumentParser:
     sp.add_argument("text", nargs="?", help="资料摘要(省略则读 stdin)")
     sp.set_defaults(func=cmd_suggest)
 
-    sp = sub.add_parser("scan", help="敏感度扫描(secret/客户名/攻击面;默认含 archive)")
+    sp = sub.add_parser("scan", help="敏感度扫描(secret/客户名/攻击面;默认含 archive;--text 扫单段文本)")
     sp.add_argument("--no-archive", action="store_true", help="只扫 active 区(默认含 archive/log/revisions)")
+    sp.add_argument("--text", help="只扫这段文本(入库前过敏感闸;传 '-' 或留空读 stdin),不扫全库")
     sp.add_argument("--out", help="把审计报告写到指定 md 路径")
     sp.set_defaults(func=cmd_scan)
 

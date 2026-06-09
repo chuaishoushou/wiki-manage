@@ -1,10 +1,12 @@
 ---
 name: wiki-query
 description: 从团队 LLM Wiki 查询知识并按需沉淀可复用答案。当用户问及团队/项目知识、模块、客户、概念、踩坑,或命中 _routes.md 关键词时使用。先走路由表精确加载,再检索综合,引用页面路径。
-allowed-tools: Read, Grep, Glob, Bash(wiki-cli:*)
+allowed-tools: Read, Grep, Glob, Bash(python3:*)
 ---
 
 # wiki-query:检索 + 综合 + 沉淀
+
+> 调用约定:下文 `wiki-cli` 均指 `python3 "${CLAUDE_PLUGIN_ROOT}/tools/bin/wiki-cli"`(插件市场 / CC 装时该变量可用);命令正文沿用 wiki-cli 简写。
 
 > 只读为主。规则真源是团队仓 `AGENTS.md` + `_routes.md` + `_vocabulary.md`。检索用 `wiki-cli` 子命令,也可直接 Grep/Read 库里的 `.md` 文件查知识。
 
@@ -16,6 +18,7 @@ allowed-tools: Read, Grep, Glob, Bash(wiki-cli:*)
 
 跑 `wiki-cli route <kw>`(传关键词):
 - 命中 → 按"必加载"列用 `wiki-cli get`(或直接 Read 对应路径)读取;对话深入再读"可选加载"列。
+- optional 列是相对该路由 required 文件所在目录的文件名,get 前需拼成 `<required 所在目录>/<optional 名>`。
 - 报告"路由歧义"时,提示用户精确化或运行 lint。
 - 未命中 → 第 2 步。
 

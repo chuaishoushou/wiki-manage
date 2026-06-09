@@ -46,8 +46,11 @@ def incoming(root: str, do_fetch: bool = True) -> Dict[str, Any]:
 
     inc = repo.git_incoming(root)
     if inc is None:
+        reason = ("非 git 仓 / 无 upstream 跟踪分支(团队仓还没 push?或本地不是 clone)。"
+                  "若当前 WIKI_ROOT 是个人库,看团队更新请改用 "
+                  "wiki-cli --root <团队clone> changes,或直接 sync-team --pull")
         return {"ok": False, "branch": branch, "commit": commit, "fetched": fetched,
-                "reason": "非 git 仓 / 无 upstream 跟踪分支(团队仓还没 push?或本地不是 clone)"}
+                "reason": reason}
 
     behind, _ = repo.git_behind_count(root)
     groups: Dict[tuple, Dict[str, Any]] = {}

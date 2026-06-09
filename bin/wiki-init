@@ -30,17 +30,42 @@ def render(rel_path, wiki_root):
                 .replace("{{WIKI_ROOT}}", wiki_root))
 
 
+def _import_repo():
+    """惰性导入 CLI 的 wiki_core.repo,只为复用其合法根判定(_is_root)。
+
+    wiki-init 不在 wiki_core 包内,需把 CLI 的 src 目录临时加进 sys.path 再导入。
+    导入失败(库未就位等)时返回 None,调用方回退到纯标准库判定,保证 wiki-init
+    始终可独立运行(纯标准库,不强依赖 CLI 已安装)。
+    """
+    src = os.path.join(WIKI_MANAGE, "plugins", "wiki-governance", "tools", "src")
+    if src not in sys.path:
+        sys.path.insert(0, src)
+    try:
+        from wiki_core import repo
+        return repo
+    except Exception:
+        return None
+
+
 def resolve_wiki_root(arg):
     if arg:
         return os.path.abspath(os.path.expanduser(arg))
     env = os.environ.get("WIKI_ROOT")
     if env:
         return os.path.abspath(os.path.expanduser(env))
-    # env 未设时优先约定团队路径,避免兜底到维护者个人库
+    # env 未设时优先约定团队路径,避免兜底到维护者个人库。
+    # 合法根判定复用 CLI 的 repo._is_root(与 find_wiki_root_verbose 对齐:
+    # 仅"含 ROOT_MARKERS 标记文件的目录"才算 wiki 根,而非任意存在的目录);
+    # 库未就位导入失败时回退 os.path.isdir,保证 wiki-init 仍可独立运行。
+    repo = _import_repo()
+    is_root = repo._is_root if repo is not None else os.path.isdir
     team = os.path.expanduser("~/AI/team-wiki")
-    if os.path.isdir(team):
+    if is_root(team):
         return team
-    return os.path.expanduser("~/AI/wiki")
+    personal = os.path.expanduser("~/AI/wiki")
+    if is_root(personal):
+        return personal
+    return personal
 
 
 def banner(title):

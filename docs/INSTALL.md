@@ -94,7 +94,7 @@ git -C ~/AI/team-wiki  pull     # 更新团队知识(= /wiki-sync)
 # 路 A:在 CC 里 /plugin uninstall wiki-governance@wiki-governance-marketplace
 # 路 B:
 rm ~/.claude/skills/wiki-ingest ~/.claude/skills/wiki-query ~/.claude/skills/wiki-lint
-rm ~/.claude/commands/wiki-sync.md ~/.claude/commands/wiki-help.md
+rm ~/.claude/commands/wiki-*.md   # wiki-sync.md / wiki-sync-team.md / wiki-help.md
 # 删除 ~/.claude/CLAUDE.md 中 "wiki-init" 标记的那一段(规则指针)
 ```
 

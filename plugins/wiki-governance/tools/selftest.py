@@ -317,6 +317,33 @@ def main():
         except Exception as e:
             check("wiki-cli init", False, f"{e}: {r.stdout[:120]}{r.stderr[:120]}")
 
+        # 根级协议/导航文件逐个 validate_page 必须 0 error(回归:新建库根级文件曾因
+        # tag 不在白名单 / domain=global 未登记被误判 unknown-domain)
+        if SRC not in sys.path:
+            sys.path.insert(0, SRC)
+        from wiki_core import frontmatter as fm_mod, validate as validate_mod
+        from wiki_core.vocabulary import load as load_vocab
+        vocab = load_vocab(target)
+        for root_file in ("AGENTS.md", "_vocabulary.md", "_routes.md", "overview.md"):
+            p = os.path.join(target, root_file)
+            meta, _, has_fm = fm_mod.read_page(p)
+            issues = validate_mod.validate_page(meta, has_fm, root_file, vocab)
+            errs = [i for i in issues if i["level"] == "error"]
+            check(f"新建库根级 {root_file} validate 0 error", not errs,
+                  f"errs={[i['code'] for i in errs]}")
+
+    # scan --text:传含敏感词文本应命中(入库前过敏感闸的文本模式)
+    with tempfile.TemporaryDirectory(prefix="wiki-scantext-") as root:
+        build_fixture(root)
+        r = run_cli(root, "scan", "--text", "clientSecret=abc 客户甲 注入")
+        try:
+            d = json.loads(r.stdout)
+            check("CLI scan --text(敏感文本命中)",
+                  d.get("any_hit") is True and bool(d["hits"]["secret_keywords"]),
+                  f"any_hit={d.get('any_hit')} hits={d.get('hits')}")
+        except Exception as e:
+            check("CLI scan --text", False, f"{e}: {r.stdout[:120]}{r.stderr[:120]}")
+
     # 汇总
     passed = sum(1 for _, ok, _ in RESULTS if ok)
     total = len(RESULTS)

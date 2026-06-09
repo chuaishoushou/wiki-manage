@@ -5,6 +5,11 @@ from typing import Any, Dict, List
 
 from .vocabulary import Vocabulary
 
+# 'global' 是保留的元 domain:跨域复用页 + 根级协议/导航文件(AGENTS/_vocabulary/_routes/overview)
+# 都声明 domain: global,但它不是一个登记在 _vocabulary.md domains[] 里的业务 domain。
+# 校验时把它当作合法 domain 放行,否则新建库根级文件会报 unknown-domain。
+_RESERVED_DOMAINS = {"global"}
+
 
 def issue(level: str, code: str, msg: str, path: str = "") -> Dict[str, str]:
     return {"level": level, "code": code, "msg": msg, "path": path}
@@ -44,9 +49,9 @@ def validate_page(meta: Dict[str, Any], has_fm: bool, rel: str, vocab: Vocabular
     if pt and pt not in vocab.page_types:
         issues.append(issue("error", "bad-page-type", f"page_type `{pt}` 不在 {vocab.page_types}", rel))
 
-    # domain 必须是已登记 domain
+    # domain 必须是已登记 domain(保留元 domain 'global' 始终放行)
     dom = meta.get("domain")
-    if dom and vocab.domain_slugs and dom not in vocab.domain_slugs:
+    if dom and dom not in _RESERVED_DOMAINS and vocab.domain_slugs and dom not in vocab.domain_slugs:
         issues.append(issue("error", "unknown-domain", f"domain `{dom}` 未在 _vocabulary.md 登记", rel))
 
     # tags 校验:白名单 + 同义归并 + 禁止用 tag 表达状态

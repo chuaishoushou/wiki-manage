@@ -33,8 +33,8 @@ def find_wiki_root_verbose(start: Optional[str] = None) -> Tuple[Optional[str], 
       2. $WIKI_ROOT 非空:合法→env;非法→(None,'env-invalid') 硬失败,绝不静默回退
       3. 约定团队路径 ~/AI/team-wiki(TEAM_WIKI_FALLBACK):GUI/Desktop 启动丢 env 时的
          安全兜底,落到团队库而非个人库 —— 这是"零环境变量新用户/GUI 也能连上团队库"的关键
-      4. 从 cwd 向上找标记(便利路径,但 server 端会对此 source 发 ⚠)
-      5. 个人库 ~/AI/wiki(PERSONAL_WIKI_FALLBACK):向后兼容个人库用户,server 端发 ⚠
+      4. 从 cwd 向上找标记(便利路径,但 CLI(protocol/_resolve_root)会对该 source 发 ⚠ 到 stderr)
+      5. 个人库 ~/AI/wiki(PERSONAL_WIKI_FALLBACK):向后兼容个人库用户,CLI(protocol/_resolve_root)会对该 source 发 ⚠ 到 stderr
     关键安全点:显式配了 WIKI_ROOT 却无效 → (None,'env-invalid'),不静默回退,
     避免团队成员配错路径时悄悄拿到别的库。
     """

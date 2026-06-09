@@ -3,7 +3,7 @@
     "wiki-governance-marketplace": {
       "source": {
         "source": "github",
-        "repo": "REPLACE_ORG/wiki-manage"
+        "repo": "chuaishoushou/wiki-manage"
       }
     }
   },

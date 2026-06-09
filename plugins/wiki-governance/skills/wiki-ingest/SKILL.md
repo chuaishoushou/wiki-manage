@@ -2,10 +2,12 @@
 name: wiki-ingest
 description: 把资料按统一规则 ingest 进团队 LLM Wiki。当用户要"记一下/入库/沉淀/收录"知识、给出外部资料(docx/pdf/md/链接)、或说"这次踩坑记到 wiki"时使用。先过敏感度闸与受控词表分类决策树,低置信入 staging。仅维护者写入。
 disable-model-invocation: true
-allowed-tools: Read, Grep, Glob, Write, Edit, Bash(git:*), Bash(wiki-cli:*), Bash(python3:*)
+allowed-tools: Read, Grep, Glob, Write, Edit, Bash(git:*), Bash(python3:*)
 ---
 
 # wiki-ingest:统一规则入库(重流程)
+
+> 调用约定:下文 `wiki-cli` 均指 `python3 "${CLAUDE_PLUGIN_ROOT}/tools/bin/wiki-cli"`(插件市场 / CC 装时该变量可用);命令正文沿用 wiki-cli 简写。
 
 > ⚠️ 写操作。规则真源是团队仓 `AGENTS.md` + `_vocabulary.md`,本 skill 只是把流程固化成步骤,**不复制规则正文**。任何分歧以 AGENTS.md / _vocabulary.md 为准。
 > 跨平台:本工作流(正文)三家通用。检索/校验/分类用 `wiki-cli` 子命令,查知识也可直接 Read/Grep 库里的 `.md` 文件;三平台靠"规则指针"(CC: `~/.claude/CLAUDE.md`;Codex: `~/.codex/AGENTS.md`;Cursor: `.cursor/rules/wiki.mdc`)告诉 AI 库位置与这套流程。
@@ -20,7 +22,7 @@ allowed-tools: Read, Grep, Glob, Write, Edit, Bash(git:*), Bash(wiki-cli:*), Bas
 
 ## 第 1 步(强制):敏感度闸 —— 先于分类
 
-跑 `wiki-cli scan`(传资料文本)。命中**客户真名 / 凭证 / 攻击面关键词**时:
+跑 `wiki-cli scan --text "<资料文本>"`(对尚未落盘的资料做敏感度预检)。命中**客户真名 / 凭证 / 攻击面关键词**时:
 - frontmatter `sensitivity` 默认取建议值(通常 `maintainer-only`),需用户显式下调才放宽。
 - 命中凭证/漏洞细节的:`maintainer-only` 或 `exclude`;**绝不让它进会 publish 的页**。
 - `log.md` / revisions 摘要里**不要复述**凭证或注入细节。
@@ -40,6 +42,7 @@ confidence = low / 歧义 / 平手     → 写 wiki/staging/domain-review/<slug>
 ```
 - page_type 取自闭集(source/entity/concept/query/module)。
 - slug 用 kebab-case;模块用 `<module-id>-<英文名>`。
+- 模块落位:模块目录内主文件 `README.md`;模块任务流水另见团队 `AGENTS.md` 模块维护约定。
 - 已存在相关页 → **优先重写整合**,不要新建重复(先 `wiki-cli search` 找相似,或直接 Grep 库文件)。
 
 ## 第 4 步(强制):写前校验
@@ -47,10 +50,14 @@ confidence = low / 歧义 / 平手     → 写 wiki/staging/domain-review/<slug>
 补齐 frontmatter 必填集(见 `_vocabulary.md` `required_frontmatter`):
 `tags / page_type / domain / shared_scope / sensitivity / status / date_created`(低/中置信另需 `domain_reason`)。
 
+把第 2 步 suggest 得到的 confidence 写入 frontmatter 字段 `domain_confidence`;为 low/medium 时必须同时填 `domain_reason`(否则 validate 报 missing-conditional)。
+
 落盘前跑 `wiki-cli validate <path>`。**有 error 不予落盘**,先补齐。
 - tags 必须取自白名单,命中同义词先归并;禁止用 tag 表达状态。
 
 ## 第 5 步:落盘 + 连通 + 审计
+
+> 本步全部产物(目标页、`_routes.md` 追加、`log.md` 追加、revisions 文件)均由 AI 用 Write/Edit 直接写盘,wiki-cli 不提供这些写操作。
 
 1. `Write` 目标文件(直接用 file tools 写库里的 `.md`)。
 2. 新页 → 在 `_routes.md` 追加关键词路由(否则检索不可达);更新所属 `overview.md` 使可达。

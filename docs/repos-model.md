@@ -41,6 +41,20 @@
 ## 个人知识想进团队仓:走贡献回路,不是 pull
 成员产生的新知识若要进团队仓,**经 PR(Pull Request,合并请求)提到团队仓的 `staging/`(暂存区),由该 domain 的 owner(负责人)审核晋升**——不是在自己 `git pull` 时混进来。
 
+## 三个"同步",各管一段(别混)
+
+名字里都带"同步",但作用对象和 `WIKI_ROOT`(库根环境变量)语境完全不同:
+
+| 命令 | 适用 `WIKI_ROOT` 语境 | 干什么 | 拉取方式 |
+|---|---|---|---|
+| `sync-team`(`/wiki-sync-team`) | **个人库**(日常主线) | 把**团队仓的本地 clone 原样镜像**进个人库 `wiki/team/` 只读区(可检索、增量幂等、不重分类) | `--pull` 时对团队 clone 走 `git pull --ff-only` |
+| `changes` | **团队仓的本地 clone** | 只读看该 clone **落后 origin 多少 / 有哪些待更新知识**(不拉取、不改盘) | 只读,不拉 |
+| `/wiki-sync` | **当前库**(仅对有 upstream 的库 = 团队 clone 才有意义) | 确认后 `git pull` 当前库到最新,并报告协议版本/新鲜度 | `git pull --ff-only` |
+
+- `WIKI_ROOT`=**个人库**时,日常只用 `sync-team`(团队→个人镜像);个人库无 upstream,`/wiki-sync` 对它没意义。
+- `WIKI_ROOT`=**团队 clone**时,用 `changes` 看落后多少、用 `/wiki-sync` 把它拉到最新。
+- 三者统一用 `git pull --ff-only`(快进合并,不 rebase、不强推):本地若已偏离则失败并列给用户,绝不强制覆盖。
+
 ## 落到工具(已支持,无需额外功能)
 ```bash
 git clone https://github.com/chuaishoushou/team-wiki.git ~/AI/team-wiki        # 团队库:只读消费

@@ -5,7 +5,7 @@
 ## settings.json
 让团队成员的 Claude Code 在信任本仓后,自动认识 marketplace 并启用 `wiki-governance` 插件。
 
-- 把 `REPLACE_ORG/wiki-manage` 改成 wiki-manage 工具仓的实际 GitHub 仓(`owner/repo`)。
+- `settings.json` 已填 `chuaishoushou/wiki-manage`;若你 fork 了自己的工具仓,改成你的 `owner/repo`。
 - 非 GitHub(GitLab/自建)按 Claude Code 当前版本的 `extraKnownMarketplaces` source 语法调整(`source` 可为 `github` / `git` / 本地路径)。
 - ⚠ 成员首次进仓需接受 workspace trust 对话框,才会被提示安装插件。
 - ⚠ 该字段 schema 随 CC 版本演进,落地前在团队实际 CC 版本上验证一次(spec §10)。

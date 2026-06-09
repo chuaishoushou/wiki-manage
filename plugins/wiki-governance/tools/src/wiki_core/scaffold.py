@@ -47,7 +47,12 @@ def build_vocab_dict(domains: List[str], owner: str, profile: str) -> Dict[str, 
             "status": ["active", "staged", "archived", "unresolved"],
             "domain_confidence": ["low", "medium", "high"],
         },
-        "tag_whitelist": _PAGE_TYPES + list(domains) + ["overview", "reference", "operations"],
+        "tag_whitelist": _PAGE_TYPES + list(domains) + [
+            "overview", "reference", "operations",
+            # 根级协议/导航文件(AGENTS/_vocabulary/_routes/overview)自带的基础设施类 tag,
+            # 必须进白名单,否则对新建库根级文件 validate 会报 tag-not-whitelisted。
+            "schema", "infrastructure", "protocol", "vocabulary", "routes", "navigation",
+        ],
         "tag_synonyms": {},
         "status_in_tags_forbidden": ["稳定", "进行中", "stable", "in-progress"],
         "global_promotion": {

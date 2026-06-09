@@ -7,10 +7,14 @@ alwaysApply: false
 
 > 占位符由 bin/wiki-init 替换。本规则只作 @-mention 便利;知识库是本地 markdown,**直接读 + 调 wiki-cli**。
 
-本项目可访问 LLM Wiki(`{{WIKI_ROOT}}`)。涉及 wiki 时:
+本项目可访问 LLM Wiki(`{{WIKI_ROOT}}`)。
+
+下文 `wiki-cli` 指 `python3 {{WIKI_MANAGE}}/plugins/wiki-governance/tools/bin/wiki-cli`。命令正文沿用 wiki-cli 简写。
+
+涉及 wiki 时:
 1. 协议与分类闭集:读 `{{WIKI_ROOT}}/AGENTS.md` + `{{WIKI_ROOT}}/_vocabulary.md`;或终端 `wiki-cli --root "{{WIKI_ROOT}}" protocol`。
 2. 查知识:直接 Grep/Read `{{WIKI_ROOT}}` 下的 `.md`;或 `wiki-cli --root "{{WIKI_ROOT}}" search/route/get`,引用页面路径。
 3. 入库(仅维护者):`wiki-cli suggest` → 补 frontmatter → `wiki-cli validate` 通过后落盘;低置信入 `staging/`。
-4. 同步团队知识到个人库:`wiki-cli --root "{{WIKI_ROOT}}" sync-team --team <团队仓clone>`。
+4. 同步团队知识到个人库:`wiki-cli --root "{{WIKI_ROOT}}" sync-team --team <团队仓clone>`。(以上为 WIKI_ROOT=个人库 的日常主线;若 WIKI_ROOT 指向团队仓 clone 才用 wiki-cli changes / git pull 看更新)
 
 wiki-cli:`{{WIKI_MANAGE}}/plugins/wiki-governance/tools/bin/wiki-cli`。规则真源:`{{WIKI_ROOT}}/AGENTS.md` + `{{WIKI_ROOT}}/_vocabulary.md`。
