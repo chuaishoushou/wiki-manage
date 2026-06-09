@@ -1,16 +1,16 @@
 {
-  "name": "wiki-governance-marketplace",
+  "name": "flux-wiki-marketplace",
   "owner": {
     "name": "chuaishoushou"
   },
   "metadata": {
-    "description": "团队 LLM Wiki 治理插件市场。成员安装 wiki-governance 后,用 @wiki 规则 / skill / slash 命令查与维护团队知识。",
+    "description": "团队 LLM Wiki 治理插件市场。成员安装 flux-wiki 后,用 @wiki 规则 / skill / slash 命令查与维护团队知识。",
     "version": "0.1.0"
   },
   "plugins": [
     {
-      "name": "wiki-governance",
-      "source": "./plugins/wiki-governance",
+      "name": "flux-wiki",
+      "source": "./plugins/flux-wiki",
       "description": "按统一规则维护团队 LLM Wiki:ingest/query/lint 工作流 + wiki-cli 纯 CLI 检索/校验/同步 + 受控词表分类闸。规则真源在团队仓 AGENTS.md/_vocabulary.md。",
       "category": "knowledge",
       "keywords": ["wiki", "knowledge-base", "llm-wiki", "governance"]

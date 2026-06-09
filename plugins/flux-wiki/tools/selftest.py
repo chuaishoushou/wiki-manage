@@ -9,7 +9,7 @@
   4) wiki-init 自检
 
 退出码:全过 0,否则 1。
-用法:python3 plugins/wiki-governance/tools/selftest.py
+用法:python3 plugins/flux-wiki/tools/selftest.py
 """
 import json
 import os

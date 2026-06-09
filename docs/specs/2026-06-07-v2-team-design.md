@@ -51,18 +51,18 @@ v1 明确"砍团队仓、只服务个人、不要 enforcement、做本机 Web �
 │   _vocabulary.md  ← 受控词表(新增):domain+owner / page_type 闭集 / tag 白名单 / global 晋升
 │   _routes.md · overview.md
 │
-├─ L2 工作流内核  wiki-manage/plugins/wiki-governance/skills/ ─ 可移植 markdown(name+desc 跨平台)
+├─ L2 工作流内核  wiki-manage/plugins/flux-wiki/skills/ ─ 可移植 markdown(name+desc 跨平台)
 │   wiki-ingest/SKILL.md · wiki-query/SKILL.md · wiki-lint/SKILL.md
 │
 ├─ L3 入口(slash) /wiki-ingest /wiki-query /wiki-lint /wiki-sync
 │
-├─ L4 主动能力  wiki-manage/plugins/wiki-governance/tools/ ──── 确定性逻辑唯一实现处(纯 stdlib)
+├─ L4 主动能力  wiki-manage/plugins/flux-wiki/tools/ ──── 确定性逻辑唯一实现处(纯 stdlib)
 │   (注:tools 物理上放在插件目录内,因为 plugin 安装只拷贝插件目录;这样 hook 才能引用到)
 │   src/wiki_core/  ← frontmatter / vocabulary / routes / search / suggest / sensitivity / validate / lint / publish / repo / cli
 │   bin/wiki-cli    ← 唯一入口(纯 CLI;AI 直接调,也供 CI/手动/离线/pre-commit 用)
 │
 ├─ L5 CC 投递外壳  wiki-manage 根 .claude-plugin/marketplace.json ─ Claude Code 专属
-│   plugins/wiki-governance/{.claude-plugin/plugin.json, hooks/hooks.json}
+│   plugins/flux-wiki/{.claude-plugin/plugin.json, hooks/hooks.json}
 │
 └─ L6 各平台适配层(薄,只"指向"不"复制") wiki-manage/adapters/ + bin/wiki-init
     CC:     plugin(L5) 一键装 + ~/.claude/CLAUDE.md 规则指针

@@ -24,7 +24,7 @@ echo 'export WIKI_ROOT="$HOME/AI/team-wiki"' >> ~/.zshrc && export WIKI_ROOT="$H
 ```bash
 # 路 A(推荐,插件市场,无需 clone 工具仓——插件自带 wiki-cli):在 Claude Code 里输入
 #   /plugin marketplace add chuaishoushou/wiki-manage
-#   /plugin install wiki-governance@wiki-governance-marketplace
+#   /plugin install flux-wiki@flux-wiki-marketplace
 # 路 B(不走市场,命令行,需先 clone 工具仓):
 #   git clone https://github.com/chuaishoushou/wiki-manage.git ~/AI/wiki-manage
 python3 ~/AI/wiki-manage/bin/wiki-init --platform cc --wiki-root ~/AI/team-wiki --write
@@ -44,7 +44,7 @@ python3 ~/AI/wiki-manage/bin/wiki-init --platform cc --wiki-root ~/AI/team-wiki 
 ### B-1. 全新团队,还没有 wiki
 ```bash
 git clone https://github.com/chuaishoushou/wiki-manage.git ~/AI/wiki-manage
-python3 ~/AI/wiki-manage/plugins/wiki-governance/tools/bin/wiki-cli \
+python3 ~/AI/wiki-manage/plugins/flux-wiki/tools/bin/wiki-cli \
     init ~/AI/team-wiki --domains backend,frontend,ops --owner 你的名字
 export WIKI_ROOT="$HOME/AI/team-wiki"
 ```
@@ -60,7 +60,7 @@ export WIKI_ROOT="$HOME/AI/team-wiki"
 > **预期管理**:这两家也有插件市场、清单格式与 CC 高度一致,本仓已备好三家清单。先按 A-1 顶部准备好 team-wiki + 设好 `WIKI_ROOT`(路 A 插件市场无需 clone 工具仓;路 B/wiki-init 才需 `git clone wiki-manage`)。
 
 **路 A:插件市场(推荐)**
-- **Codex**:`codex plugin marketplace add chuaishoushou/wiki-manage`(命令名以 `codex plugin --help` 为准)→ 在 Codex 里 `/plugin install wiki-governance` → 重启。装 skills + hooks(不支持 slash command)。
+- **Codex**:`codex plugin marketplace add chuaishoushou/wiki-manage`(命令名以 `codex plugin --help` 为准)→ 在 Codex 里 `/plugin install flux-wiki` → 重启。装 skills + hooks(不支持 slash command)。
 - **Cursor**:经市场面板安装(官方暂无 CLI 装命令);装好后用 `@wiki` 触发规则。装 skills + commands + rules(.mdc)。
 
 **路 B:wiki-init(不走市场)**
@@ -75,7 +75,7 @@ python3 ~/AI/wiki-manage/bin/wiki-init --platform codex --wiki-root ~/AI/team-wi
 - **Cursor**:`wiki-init --platform cursor --write --cursor-project <项目根> --wiki-root ~/AI/team-wiki` 写 `.cursor/rules/wiki.mdc` 规则指针。**每个新项目都要重跑一次**;靠 `@wiki` 提及或直接让 AI Read/Grep 库文件并调 wiki-cli。
 - 先单独验证库与工具就绪(隔离问题):
   ```bash
-  WIKI_ROOT=~/AI/team-wiki python3 ~/AI/wiki-manage/plugins/wiki-governance/tools/bin/wiki-cli protocol
+  WIKI_ROOT=~/AI/team-wiki python3 ~/AI/wiki-manage/plugins/flux-wiki/tools/bin/wiki-cli protocol
   ```
   打印「连接来源 … ✅」+「协议版本 … OK ✅」= 库与 CLI 没问题,之后出问题就是平台配置。
 

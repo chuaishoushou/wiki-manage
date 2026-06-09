@@ -4,7 +4,7 @@
 
 ## 1. 确定性代理回归(可自动跑,已并入自测)
 ```bash
-python3 plugins/wiki-governance/evals/check_descriptions.py
+python3 plugins/flux-wiki/evals/check_descriptions.py
 ```
 校验每个 SKILL.md 的 `description` 覆盖 `triggers.json` 里的 `must_cover` 触发词 —— 防止改 description 时漏掉关键词导致 skill 不再被自动选中。这是确定性的,不依赖 LLM。
 

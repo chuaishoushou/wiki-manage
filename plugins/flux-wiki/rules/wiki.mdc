@@ -5,7 +5,7 @@ alwaysApply: false
 
 # 团队 LLM Wiki(Cursor 适配)
 
-> 本规则随 wiki-governance 插件分发(路 A / 插件市场版),作 @-mention 便利。知识库是本地 markdown,**直接读 + 调 wiki-cli**。
+> 本规则随 flux-wiki 插件分发(路 A / 插件市场版),作 @-mention 便利。知识库是本地 markdown,**直接读 + 调 wiki-cli**。
 > ⚠ 同步提示:本规则正文与 wiki-init 版 `adapters/cursor/wiki.mdc` 语义一致,改正文请同步那份;两份仅路径机制不同(此处 `${*_PLUGIN_ROOT}` vs 那份 `{{占位符}}`)。
 
 下文 `wiki-cli` 指 `python3 "${CLAUDE_PLUGIN_ROOT:-${CURSOR_PLUGIN_ROOT:-${PLUGIN_ROOT}}}/tools/bin/wiki-cli"`(插件根变量:Cursor 为 `CURSOR_PLUGIN_ROOT`,CC/Codex 为 `CLAUDE_PLUGIN_ROOT`)。命令正文沿用 wiki-cli 简写。

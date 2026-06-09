@@ -3,7 +3,7 @@
 把本目录的两个文件放到**团队内容仓**根的 `.claude/` 下(即 `team-wiki/.claude/settings.json` 与 `team-wiki/.claude/CLAUDE.md`)。
 
 ## settings.json
-让团队成员的 Claude Code 在信任本仓后,自动认识 marketplace 并启用 `wiki-governance` 插件。
+让团队成员的 Claude Code 在信任本仓后,自动认识 marketplace 并启用 `flux-wiki` 插件。
 
 - `settings.json` 已填 `chuaishoushou/wiki-manage`;若你 fork 了自己的工具仓,改成你的 `owner/repo`。
 - 非 GitHub(GitLab/自建)按 Claude Code 当前版本的 `extraKnownMarketplaces` source 语法调整(`source` 可为 `github` / `git` / 本地路径)。

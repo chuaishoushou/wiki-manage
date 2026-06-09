@@ -19,8 +19,8 @@ import sys
 
 WIKI_MANAGE = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
 ADAPTERS = os.path.join(WIKI_MANAGE, "adapters")
-CLI = os.path.join(WIKI_MANAGE, "plugins", "wiki-governance", "tools", "bin", "wiki-cli")
-MARKER = "# === wiki-governance (auto by wiki-init) ==="
+CLI = os.path.join(WIKI_MANAGE, "plugins", "flux-wiki", "tools", "bin", "wiki-cli")
+MARKER = "# === flux-wiki (auto by wiki-init) ==="
 
 
 def render(rel_path, wiki_root):
@@ -37,7 +37,7 @@ def _import_repo():
     导入失败(库未就位等)时返回 None,调用方回退到纯标准库判定,保证 wiki-init
     始终可独立运行(纯标准库,不强依赖 CLI 已安装)。
     """
-    src = os.path.join(WIKI_MANAGE, "plugins", "wiki-governance", "tools", "src")
+    src = os.path.join(WIKI_MANAGE, "plugins", "flux-wiki", "tools", "src")
     if src not in sys.path:
         sys.path.insert(0, src)
     try:
@@ -110,8 +110,8 @@ def _link_or_copy(src, dst, label):
 
 def do_cc(wiki_root, write):
     banner("Claude Code")
-    skills_src = os.path.join(WIKI_MANAGE, "plugins", "wiki-governance", "skills")
-    cmds_src = os.path.join(WIKI_MANAGE, "plugins", "wiki-governance", "commands")
+    skills_src = os.path.join(WIKI_MANAGE, "plugins", "flux-wiki", "skills")
+    cmds_src = os.path.join(WIKI_MANAGE, "plugins", "flux-wiki", "commands")
     ptr = render("cc/CLAUDE.md.pointer", wiki_root)
     if not write:
         print("① 写规则指针到 ~/.claude/CLAUDE.md(告诉 AI:库在哪 / 用 wiki-cli / 直接读库文件):\n")

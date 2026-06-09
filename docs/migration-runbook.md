@@ -13,13 +13,13 @@
 
 ### 1. 工具自测(随时可做,无副作用)
 ```bash
-python3 ~/AI/wiki-manage/plugins/wiki-governance/tools/selftest.py   # 期望全部通过(末行 ✅ 全部通过)
+python3 ~/AI/wiki-manage/plugins/flux-wiki/tools/selftest.py   # 期望全部通过(末行 ✅ 全部通过)
 ```
 
 ### 2. 体检现库(只读)
 ```bash
 export WIKI_ROOT=~/AI/wiki
-CLI=~/AI/wiki-manage/plugins/wiki-governance/tools/bin/wiki-cli
+CLI=~/AI/wiki-manage/plugins/flux-wiki/tools/bin/wiki-cli
 python3 $CLI lint --out ~/AI/wiki-manage/docs/lint-baseline-$(date +%F).md
 ```
 当前基线:235 error / 202 warn(绝大多数是存量页缺 `page_type`/`sensitivity`)。

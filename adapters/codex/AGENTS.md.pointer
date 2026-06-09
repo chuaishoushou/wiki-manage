@@ -4,7 +4,7 @@
 
 本机维护一个 LLM Wiki(知识库),根目录 `{{WIKI_ROOT}}`。它是本地 markdown,**直接读 + 用 wiki-cli**。
 
-下文 `wiki-cli` 指 `python3 {{WIKI_MANAGE}}/plugins/wiki-governance/tools/bin/wiki-cli`。命令正文沿用 wiki-cli 简写。
+下文 `wiki-cli` 指 `python3 {{WIKI_MANAGE}}/plugins/flux-wiki/tools/bin/wiki-cli`。命令正文沿用 wiki-cli 简写。
 
 任务涉及该 wiki 的查询/入库/同步时:
 1. 协议与分类闭集:读 `{{WIKI_ROOT}}/AGENTS.md` + `{{WIKI_ROOT}}/_vocabulary.md`;或 `wiki-cli --root "{{WIKI_ROOT}}" protocol`。
@@ -12,4 +12,4 @@
 3. 入库(仅维护者):`wiki-cli suggest` → 补 frontmatter → `wiki-cli validate` 通过后用编辑器落盘;低置信入 `staging/`。
 4. 同步团队知识到个人库:`wiki-cli --root "{{WIKI_ROOT}}" sync-team --team <团队仓clone>`。(以上为 WIKI_ROOT=个人库 的日常主线;若 WIKI_ROOT 指向团队仓 clone 才用 wiki-cli changes / git pull 看更新)
 
-wiki-cli:`{{WIKI_MANAGE}}/plugins/wiki-governance/tools/bin/wiki-cli`。规则真源:`{{WIKI_ROOT}}/AGENTS.md` + `{{WIKI_ROOT}}/_vocabulary.md`。
+wiki-cli:`{{WIKI_MANAGE}}/plugins/flux-wiki/tools/bin/wiki-cli`。规则真源:`{{WIKI_ROOT}}/AGENTS.md` + `{{WIKI_ROOT}}/_vocabulary.md`。

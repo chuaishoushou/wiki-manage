@@ -9,7 +9,7 @@
 ```
   team-wiki  (知识内容,你"读"它)            wiki-manage  (工具,你"装"它,= 本仓)
   ┌─────────────────────────────┐           ┌──────────────────────────────────┐
-  │ wiki/domains/** 知识页        │  ◀─只读── │ plugin: wiki-governance           │
+  │ wiki/domains/** 知识页        │  ◀─只读── │ plugin: flux-wiki           │
   │ AGENTS.md   协议(规则真源)    │ Read/Grep │   skills /wiki-ingest /query /lint │
   │ _vocabulary.md 受控词表        │  + CLI    │   CLI wiki-cli(含 init 建库)     │
   │ _routes.md  关键词路由         │           │   规则指针(三平台告诉 AI 库在哪) │
@@ -17,7 +17,7 @@
        1-2 名维护者写,15 人只读                成员装它来查/维护者用它来管
 ```
 
-**术语速查**:`team-wiki`=知识内容仓 · `wiki-manage`=工具/插件仓(本仓) · `wiki-governance`=本仓里那个 Claude Code 插件 · `_vocabulary.md`=团队允许用的分类清单 · `AGENTS.md`=操作协议。
+**术语速查**:`team-wiki`=知识内容仓 · `wiki-manage`=工具/插件仓(本仓) · `flux-wiki`=本仓里那个 Claude Code 插件 · `_vocabulary.md`=团队允许用的分类清单 · `AGENTS.md`=操作协议。
 
 ## 我是谁,从哪开始
 
@@ -63,11 +63,11 @@
 
 ```bash
 # 一键自测(unittest + CLI 端到端 + wiki-init + evals,自建临时 fixture)
-python3 plugins/wiki-governance/tools/selftest.py
+python3 plugins/flux-wiki/tools/selftest.py
 
 # 体验冷启动:30 秒建一个全新合规库看看长啥样
-python3 plugins/wiki-governance/tools/bin/wiki-cli init /tmp/demo-wiki --domains backend,frontend
-WIKI_ROOT=/tmp/demo-wiki python3 plugins/wiki-governance/tools/bin/wiki-cli protocol
+python3 plugins/flux-wiki/tools/bin/wiki-cli init /tmp/demo-wiki --domains backend,frontend
+WIKI_ROOT=/tmp/demo-wiki python3 plugins/flux-wiki/tools/bin/wiki-cli protocol
 
 # 三平台 onboarding 配置生成 + 自检(不加 --write 只打印)
 python3 bin/wiki-init --platform all
@@ -92,7 +92,7 @@ wiki-cli init ~/AI/wiki2 --check         # 结构健康检查:缺层级会报并
 - [成员 onboarding](docs/onboarding.md) — 三平台上手 + 验收清单
 - [维护者迁移 runbook](docs/migration-runbook.md) — 从零建库 / 从个人库迁团队
 - [仓库模型 repos-model](docs/repos-model.md) — 团队仓 vs 个人库、pull≠重 ingest、贡献走 PR(**防误用必读**)
-- [skill 触发 evals](plugins/wiki-governance/evals/README.md)
+- [skill 触发 evals](plugins/flux-wiki/evals/README.md)
 - 团队仓 `.claude/` 模板:[examples/team-wiki-dotclaude/](examples/team-wiki-dotclaude/)
 
 > 安全审计 / lint 基线报告是**针对你自己库的本地产物**(含具体内容,不随仓分发,已 gitignore)。

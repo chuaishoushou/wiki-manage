@@ -39,7 +39,7 @@ echo 'export WIKI_ROOT="$HOME/AI/team-wiki"' >> ~/.zshrc && export WIKI_ROOT="$H
 **路 A:插件市场(推荐,最接近"一个链接")** —— 在 Claude Code 里输入:
 ```
 /plugin marketplace add chuaishoushou/wiki-manage
-/plugin install wiki-governance@wiki-governance-marketplace
+/plugin install flux-wiki@flux-wiki-marketplace
 ```
 重启 Claude Code 生效。skill / 命令 / hooks / 规则指针随插件一起装好。
 
@@ -57,7 +57,7 @@ python3 ~/AI/wiki-manage/bin/wiki-init --platform cc --wiki-root ~/AI/team-wiki 
 ```bash
 codex plugin marketplace add chuaishoushou/wiki-manage   # 命令名以 `codex plugin --help` 为准
 ```
-然后在 Codex 里 `/plugin install wiki-governance`,**重启 Codex**。装的是 skills + hooks(Codex 不支持 slash command,故不含 commands)。
+然后在 Codex 里 `/plugin install flux-wiki`,**重启 Codex**。装的是 skills + hooks(Codex 不支持 slash command,故不含 commands)。
 
 **路 B:wiki-init(不走市场,git 手动)**:
 ```bash
@@ -80,7 +80,7 @@ python3 ~/AI/wiki-manage/bin/wiki-init --platform cursor --wiki-root ~/AI/team-w
 ## 第 3 步:黄金验收(命令行,不依赖先把 AI 跑起来)
 
 ```bash
-WIKI_ROOT=~/AI/team-wiki python3 ~/AI/wiki-manage/plugins/wiki-governance/tools/bin/wiki-cli protocol
+WIKI_ROOT=~/AI/team-wiki python3 ~/AI/wiki-manage/plugins/flux-wiki/tools/bin/wiki-cli protocol
 ```
 看到 **「连接来源: WIKI_ROOT 环境变量 ✅」**(或「约定团队路径 ~/AI/team-wiki ✅」)+ **「协议版本: … OK ✅」** = 工具与库都就绪。
 
@@ -103,7 +103,7 @@ git -C ~/AI/team-wiki  pull     # 更新团队知识(= /wiki-sync)
 ## 卸载(可逆)
 
 ```bash
-# 路 A:在 CC 里 /plugin uninstall wiki-governance@wiki-governance-marketplace
+# 路 A:在 CC 里 /plugin uninstall flux-wiki@flux-wiki-marketplace
 # 路 B:
 rm ~/.claude/skills/wiki-ingest ~/.claude/skills/wiki-query ~/.claude/skills/wiki-lint
 rm ~/.claude/commands/wiki-*.md   # wiki-sync.md / wiki-sync-team.md / wiki-help.md

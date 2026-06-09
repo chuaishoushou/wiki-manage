@@ -1,9 +1,9 @@
 """wiki_core 单元 + 集成测试(纯标准库 unittest)。
 
 运行:
-  python3 -m unittest discover -s plugins/wiki-governance/tools/tests
+  python3 -m unittest discover -s plugins/flux-wiki/tools/tests
 或:
-  python3 plugins/wiki-governance/tools/tests/test_wiki_core.py
+  python3 plugins/flux-wiki/tools/tests/test_wiki_core.py
 """
 import os
 import sys

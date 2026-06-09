@@ -1,6 +1,6 @@
 {
   "extraKnownMarketplaces": {
-    "wiki-governance-marketplace": {
+    "flux-wiki-marketplace": {
       "source": {
         "source": "github",
         "repo": "chuaishoushou/wiki-manage"
@@ -8,6 +8,6 @@
     }
   },
   "enabledPlugins": {
-    "wiki-governance@wiki-governance-marketplace": true
+    "flux-wiki@flux-wiki-marketplace": true
   }
 }

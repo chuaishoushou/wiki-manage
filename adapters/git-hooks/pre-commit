@@ -4,7 +4,7 @@
 # 本地、只对写入者生效、不影响只读成员 —— 不是团队级 CI(符合约束 C)。
 # 占位符 {{WIKI_MANAGE}} 由 bin/wiki-init 替换;或手动改成你本机 wiki-manage 路径。
 
-CLI="{{WIKI_MANAGE}}/plugins/wiki-governance/tools/bin/wiki-cli"
+CLI="{{WIKI_MANAGE}}/plugins/flux-wiki/tools/bin/wiki-cli"
 ROOT="$(git rev-parse --show-toplevel)"
 
 python3 "$CLI" lint --staged --root "$ROOT"

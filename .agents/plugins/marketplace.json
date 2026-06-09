@@ -1,14 +1,14 @@
 {
-  "name": "wiki-governance-marketplace",
+  "name": "flux-wiki-marketplace",
   "interface": {
     "displayName": "Wiki Governance(团队 LLM Wiki 治理)"
   },
   "plugins": [
     {
-      "name": "wiki-governance",
+      "name": "flux-wiki",
       "source": {
         "source": "local",
-        "path": "./plugins/wiki-governance"
+        "path": "./plugins/flux-wiki"
       },
       "policy": {
         "installation": "AVAILABLE",
