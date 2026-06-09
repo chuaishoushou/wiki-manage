@@ -4,7 +4,7 @@ description: (任何人)列出团队 wiki 插件的所有能力 / 命令
 
 请向用户展示团队 wiki 插件的能力清单(原样呈现即可):
 
-> 约定:下文 `wiki-cli` 均指 `python3 "${CLAUDE_PLUGIN_ROOT}/tools/bin/wiki-cli"`(插件市场 / CC 装时该变量可用);为便于阅读,命令正文沿用 `wiki-cli` 简写。
+> 约定:下文 `wiki-cli` 均指 `python3 "${CLAUDE_PLUGIN_ROOT:-${CURSOR_PLUGIN_ROOT:-${PLUGIN_ROOT}}}/tools/bin/wiki-cli"`(插件根变量:CC/Codex=CLAUDE_PLUGIN_ROOT,Cursor=CURSOR_PLUGIN_ROOT);为便于阅读,命令正文沿用 `wiki-cli` 简写。
 
 > 提示:`wiki-query` / `wiki-ingest` / `wiki-lint` 是 **skill(技能)**(直接说"查 wiki…/把这条记进 wiki/给 wiki 体检"即可触发);`/wiki-sync` / `/wiki-sync-team` / `/wiki-help` 是 **slash 命令**(`/` 直接调)。底层能力都来自 wiki-cli 纯 CLI + 直接读库文件。
 
@@ -21,14 +21,14 @@ description: (任何人)列出团队 wiki 插件的所有能力 / 命令
 - `/wiki-sync-team` 或 `wiki-cli sync-team --team <团队仓clone>` — 把团队仓**原样镜像**到个人库 `wiki/team/` 只读区(可检索、增量幂等、不重分类;`--pull` 走 `git pull --ff-only`)
 
 【`WIKI_ROOT`=团队 clone】直接消费团队 clone 本身:
-- `wiki-cli changes` — 看该 clone 落后 origin 多少 / 有哪些待更新知识(只读)
+- `wiki-cli changes` — 看该 clone 落后 origin 多少 / 有哪些待更新知识(只读;是 `/wiki-sync` 的"预览半",看完再用 `/wiki-sync` 应用)
 - `/wiki-sync` — 确认后手动 `git pull --ff-only` 当前库;**不会自动更新**
 
 **维护(维护者)** — skill: wiki-lint
 - 体检 / git init 前安全审计;底层用 `wiki-cli lint` / `wiki-cli scan`(或直接 Read/Grep 库文件)
 
 **命令行(纯 CLI,纯 Python 标准库)**
-`wiki-cli init`(建库) `protocol` `search` `route` `get` `new`(轻量加页) `validate` `lint` `suggest` `scan`[进阶] `publish`[进阶] `sync-team`(团队→个人镜像) `changes`
+`wiki-cli init`(建库) `protocol` `search` `route` `get` `new`(轻量加页) `validate` `lint` `suggest` `scan`[进阶] `publish`[进阶:仅"已有私库迁团队"时脱敏导出,见 migration-runbook;全新团队走 init] `sync-team`(团队→个人镜像) `changes`
 
 **关键概念**:规则真源 = 团队仓 `AGENTS.md` + `_vocabulary.md`(受控分类清单);你的 AI 连哪个库由环境变量 `WIKI_ROOT` 决定。
 新成员先看 onboarding;全新团队用 `wiki-cli init` 建库。

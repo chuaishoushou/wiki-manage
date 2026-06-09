@@ -1,0 +1,20 @@
+{
+  "name": "wiki-governance-marketplace",
+  "interface": {
+    "displayName": "Wiki Governance(团队 LLM Wiki 治理)"
+  },
+  "plugins": [
+    {
+      "name": "wiki-governance",
+      "source": {
+        "source": "local",
+        "path": "./plugins/wiki-governance"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_FIRST_USE"
+      },
+      "category": "knowledge"
+    }
+  ]
+}

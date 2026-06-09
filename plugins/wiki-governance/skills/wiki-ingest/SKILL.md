@@ -7,10 +7,10 @@ allowed-tools: Read, Grep, Glob, Write, Edit, Bash(git:*), Bash(python3:*)
 
 # wiki-ingest:统一规则入库(重流程)
 
-> 调用约定:下文 `wiki-cli` 均指 `python3 "${CLAUDE_PLUGIN_ROOT}/tools/bin/wiki-cli"`(插件市场 / CC 装时该变量可用);命令正文沿用 wiki-cli 简写。
+> 调用约定:下文 `wiki-cli` 均指 `python3 "${CLAUDE_PLUGIN_ROOT:-${CURSOR_PLUGIN_ROOT:-${PLUGIN_ROOT}}}/tools/bin/wiki-cli"`(插件根变量:CC/Codex=CLAUDE_PLUGIN_ROOT,Cursor=CURSOR_PLUGIN_ROOT);命令正文沿用 wiki-cli 简写。
 
 > ⚠️ 写操作。规则真源是团队仓 `AGENTS.md` + `_vocabulary.md`,本 skill 只是把流程固化成步骤,**不复制规则正文**。任何分歧以 AGENTS.md / _vocabulary.md 为准。
-> 跨平台:本工作流(正文)三家通用。检索/校验/分类用 `wiki-cli` 子命令,查知识也可直接 Read/Grep 库里的 `.md` 文件;三平台靠"规则指针"(CC: `~/.claude/CLAUDE.md`;Codex: `~/.codex/AGENTS.md`;Cursor: `.cursor/rules/wiki.mdc`)告诉 AI 库位置与这套流程。
+> 跨平台:本工作流(正文)三家通用。检索/校验/分类用 `wiki-cli` 子命令,查知识也可直接 Read/Grep 库里的 `.md` 文件;三平台靠**插件**(或 `wiki-init` 写的规则指针——CC: `~/.claude/CLAUDE.md`、Codex: `~/.codex/AGENTS.md`、Cursor: `.cursor/rules/wiki.mdc`)告诉 AI 库位置与这套流程。
 >
 > **这是"重流程",用于把新原始资料消化进团队仓(SSOT)。** 如果只是【归属已知的简单一页】(尤其个人库),走轻量路径即可:`wiki-cli new <type> <slug> --domain <d>` 一条命令生成合规页骨架,填正文即可,不必跑下面整套。仓库模型见 `docs/repos-model.md`。
 

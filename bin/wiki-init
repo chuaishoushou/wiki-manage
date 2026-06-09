@@ -59,10 +59,12 @@ def resolve_wiki_root(arg):
     # 库未就位导入失败时回退 os.path.isdir,保证 wiki-init 仍可独立运行。
     repo = _import_repo()
     is_root = repo._is_root if repo is not None else os.path.isdir
-    team = os.path.expanduser("~/AI/team-wiki")
+    # 兜底路径复用 repo 的单一真源常量(与 find_wiki_root_verbose 的 team→personal 顺序一致,
+    # 避免两处分叉);repo 导入失败时回退到等价字符串,保证 wiki-init 仍可独立运行。
+    team = repo.TEAM_WIKI_FALLBACK if repo is not None else os.path.expanduser("~/AI/team-wiki")
+    personal = repo.PERSONAL_WIKI_FALLBACK if repo is not None else os.path.expanduser("~/AI/wiki")
     if is_root(team):
         return team
-    personal = os.path.expanduser("~/AI/wiki")
     if is_root(personal):
         return personal
     return personal
@@ -82,7 +84,11 @@ def _append_with_marker(path, content):
         with open(path, "r", encoding="utf-8") as f:
             existing = f.read()
     if MARKER in existing:
-        print(f"  (跳过,已存在 wiki-init 标记) {path}")
+        if "wiki_get_protocol" in existing or "wiki_search" in existing or "wiki_resolve_route" in existing:
+            print(f"  ⚠ {path} 已有 wiki-init 块,但含已废弃的 MCP 工具指引(wiki_*)。"
+                  f"请手动删除从 `{MARKER}` 起的旧段后重跑本命令,以更新为纯 CLI 指针。")
+        else:
+            print(f"  (跳过,已存在 wiki-init 标记) {path}")
         return
     with open(path, "a", encoding="utf-8") as f:
         f.write("\n" + MARKER + "\n" + content + "\n")

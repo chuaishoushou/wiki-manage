@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import os
 import re
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Tuple
 
 _BACKTICK = re.compile(r"`([^`]+)`")
 

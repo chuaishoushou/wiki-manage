@@ -35,13 +35,15 @@
 
 ## 平台成熟度(重要预期管理)
 
-| 平台 | 安装体验 |
-|---|---|
-| **Claude Code** | 插件市场一个链接自动装(`/plugin marketplace add chuaishoushou/wiki-manage` → `/plugin install`),或命令行 `wiki-init`;见 [INSTALL.md](docs/INSTALL.md) |
-| **Codex** | git clone + `wiki-init` 写 `~/.codex/AGENTS.md` 规则指针 + 设库路径 |
-| **Cursor** | git clone + `wiki-init` 写 `.cursor/rules/wiki.mdc` 规则指针 + 设库路径 |
+**三平台都有插件市场、清单格式高度一致**,本仓同时备好三家清单,一键装。组件支持有差异:
 
-跨平台一致性靠**确定性的 `wiki-cli` + 规则指针**(三平台同一套):AI 直接读本地 .md 查知识,用 CLI 做协议/检索/校验。skill 自动触发是 Claude Code 强项,Codex/Cursor 上需实测。
+| 平台 | 插件清单 | 安装 | 组件 |
+|---|---|---|---|
+| **Claude Code** | `.claude-plugin/plugin.json` | `/plugin marketplace add chuaishoushou/wiki-manage` → `/plugin install` | skills + commands + hooks |
+| **Codex** | `.codex-plugin/plugin.json` | `codex plugin marketplace add chuaishoushou/wiki-manage` → `/plugin install`(命令名以 `codex plugin --help` 为准) | skills + hooks(**不支持 commands**) |
+| **Cursor** | `.cursor-plugin/plugin.json` | 市场面板安装(官方暂无 CLI 装命令) | skills + commands + rules(.mdc) |
+
+每家也都保留 `wiki-init`(不走市场、git 手动写规则指针)作备选。跨平台一致的内核靠**确定性的 `wiki-cli` + 库本地 .md**:AI 直接读本地 .md 查知识,用 CLI 做协议/检索/校验。skill 自动触发是 Claude Code 强项,Codex/Cursor 上以实测为准。
 
 ## 工具能力(只读;纯 CLI + 直接读文件)
 

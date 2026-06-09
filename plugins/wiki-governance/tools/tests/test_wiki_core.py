@@ -182,7 +182,7 @@ class TestIntegrationFixture(unittest.TestCase):
         shutil.rmtree(self.dir, ignore_errors=True)
 
     def test_find_root_and_vocab(self):
-        root = repo.find_wiki_root(self.dir)
+        root = repo.find_wiki_root_verbose(self.dir)[0]
         self.assertEqual(root, self.dir)
         vocab = load_vocab(root)
         self.assertEqual(vocab.protocol_version, 2)

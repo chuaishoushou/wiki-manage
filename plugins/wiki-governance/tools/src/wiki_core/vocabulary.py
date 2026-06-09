@@ -51,10 +51,6 @@ class Vocabulary:
                 return d
         return None
 
-    def owners(self, slug: str) -> List[str]:
-        d = self.domain(slug)
-        return list(d.get("owners", [])) if d else []
-
     @property
     def page_types(self) -> List[str]:
         return self.data.get("page_types", [])
@@ -62,10 +58,6 @@ class Vocabulary:
     @property
     def required_fields(self) -> List[str]:
         return self.data.get("required_frontmatter", [])
-
-    @property
-    def conditional_fields(self) -> Dict[str, str]:
-        return self.data.get("required_frontmatter_conditional", {})
 
     @property
     def enum_fields(self) -> Dict[str, List[str]]:
@@ -90,10 +82,6 @@ class Vocabulary:
     @property
     def publish_max(self) -> str:
         return self.data.get("publish", {}).get("max_sensitivity", "team")
-
-    @property
-    def min_domains_for_global(self) -> int:
-        return int(self.data.get("global_promotion", {}).get("min_domains", 2))
 
 
 def load(root: str) -> Vocabulary:

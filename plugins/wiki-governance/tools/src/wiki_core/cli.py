@@ -1,7 +1,8 @@
 """wiki-cli:命令行入口(wiki_core 的唯一入口,纯 CLI)。
 
-子命令:protocol / search / route / get / validate / lint / suggest / scan
-全部只读。lint 支持 --staged(供 git pre-commit hook)。
+子命令:init / new / changes / sync-team / protocol / search / route / get / validate / lint / suggest / scan / publish。
+读子命令(protocol/search/route/get/validate/lint/suggest/scan/changes)只读;
+写子命令(init/new/sync-team/publish)含落盘副作用。lint 支持 --staged(供 git pre-commit hook)。
 """
 from __future__ import annotations
 
@@ -18,7 +19,8 @@ from . import changes as changes_mod, sync as sync_mod, SUPPORTED_PROTOCOL_VERSI
 from .vocabulary import load as load_vocab
 
 
-def _resolve_root(args) -> str:
+def _resolve_root_verbose(args):
+    """解析 wiki 根,返回 (root, source);找不到则报错退出,personal 兜底发告警。"""
     root, source = repo.find_wiki_root_verbose(getattr(args, "root", None))
     if not root:
         if source == "env-invalid":
@@ -33,12 +35,15 @@ def _resolve_root(args) -> str:
     if source == "personal-fallback":
         sys.stderr.write("⚠ 未设 WIKI_ROOT,已回退到个人库 ~/AI/wiki —— 若要用团队库,"
                          "请 export WIKI_ROOT 或把 team-wiki clone 到 ~/AI/team-wiki\n")
-    return root
+    return root, source
 
 
-def _emit(obj: Any, as_json: bool):
-    if as_json:
-        print(json.dumps(obj, ensure_ascii=False, indent=2))
+def _resolve_root(args) -> str:
+    return _resolve_root_verbose(args)[0]
+
+
+def _emit(obj: Any):
+    print(json.dumps(obj, ensure_ascii=False, indent=2))
 
 
 def cmd_init(args):
@@ -46,7 +51,7 @@ def cmd_init(args):
     res = scaffold_mod.scaffold(args.dir, domains=domains, owner=args.owner or "UNASSIGNED",
                                 profile=args.profile, check=args.check)
     if args.json:
-        _emit({k: v for k, v in res.items() if k != "lint_report"}, True)
+        _emit({k: v for k, v in res.items() if k != "lint_report"})
         sys.exit(0 if res["ok"] else 1)
 
     # --check:结构健康检查(不写盘)
@@ -91,6 +96,10 @@ def cmd_new(args):
                          f"  已登记:{', '.join(vocab.domain_slugs)}\n"
                          f"  不确定归属?先 wiki-cli suggest \"<摘要>\" 看建议,或走 /wiki-ingest 完整流程。\n")
         sys.exit(2)
+    sens_levels = vocab.data.get("sensitivity_levels", [])
+    if sens_levels and args.sensitivity not in sens_levels:
+        sys.stderr.write(f"错误:sensitivity `{args.sensitivity}` 不在闭集 {sens_levels}(改 --sensitivity 或先在 _vocabulary.md 登记)\n")
+        sys.exit(2)
     rel, content = scaffold_mod.new_page(root, args.type, args.slug, args.domain,
                                          title=args.title or "", sensitivity=args.sensitivity)
     full = repo.resolve_in_root(root, rel)
@@ -108,7 +117,7 @@ def cmd_new(args):
     issues = validate_mod.validate_page(meta, has_fm, rel, vocab)
     errs = [i for i in issues if i["level"] == "error"]
     if args.json:
-        _emit({"path": rel, "ok": not errs, "issues": issues}, True)
+        _emit({"path": rel, "ok": not errs, "issues": issues})
         return
     print(f"✅ 已新建合规页: {rel}")
     if errs:
@@ -124,14 +133,13 @@ def cmd_changes(args):
     root = _resolve_root(args)
     res = changes_mod.incoming(root, do_fetch=not args.no_fetch)
     if args.json:
-        _emit(res, True)
+        _emit(res)
         return
     print(changes_mod.format_text(res))
 
 
 def cmd_protocol(args):
-    root = _resolve_root(args)
-    _, source = repo.find_wiki_root_verbose(getattr(args, "root", None))
+    root, source = _resolve_root_verbose(args)
     vocab = load_vocab(root)
     behind, why = repo.git_behind_count(root)
     branch, commit = repo.git_head_info(root)
@@ -164,7 +172,7 @@ def cmd_protocol(args):
         "warnings": warnings,
     }
     if args.json:
-        _emit(payload, True)
+        _emit(payload)
         return
     print(f"wiki 根: {root}")
     src_label = {
@@ -199,10 +207,11 @@ def cmd_search(args):
     root = _resolve_root(args)
     results = search_mod.search(root, args.query, limit=args.limit, include_archive=args.archive)
     if args.json:
-        _emit(results, True)
+        _emit(results)
         return
     if not results:
-        # 区分"库是空的"和"有内容但没命中",给新用户方向
+        # 区分"内容区(wiki/)无任何页"和"有页但没命中",给新用户方向
+        # (经 init 的库恒非空,此分支仅命中"仓骨架已建/已 clone 但尚未 ingest 任何页"等窄场景)
         has_any = next(repo.iter_pages(root), None) is not None
         if not has_any:
             print("库还是空的(还没有任何页)。先用 /wiki-ingest(或 wiki-cli suggest)收录第一篇。")
@@ -221,7 +230,7 @@ def cmd_route(args):
         hits = routes_mod.resolve(routes, args.keyword)
         out = [{"keywords": h.keywords, "required": h.required, "optional": h.optional, "line": h.lineno} for h in hits]
         if args.json:
-            _emit({"keyword": args.keyword, "hits": out}, True)
+            _emit({"keyword": args.keyword, "hits": out})
             return
         if not hits:
             print(f"(关键词 `{args.keyword}` 未命中路由)")
@@ -237,7 +246,7 @@ def cmd_route(args):
         amb = routes_mod.find_ambiguous(routes)
         payload = {"route_count": len(routes), "ambiguous": amb}
         if args.json:
-            _emit(payload, True)
+            _emit(payload)
             return
         print(f"路由条数: {len(routes)}")
         if amb:
@@ -257,7 +266,7 @@ def cmd_get(args):
         sys.exit(1)
     meta, body, _ = frontmatter.read_page(full)
     if args.json:
-        _emit({"path": args.path, "frontmatter": meta, "body": body}, True)
+        _emit({"path": args.path, "frontmatter": meta, "body": body})
         return
     print(f"--- {args.path} ---")
     for k, v in meta.items():
@@ -281,7 +290,7 @@ def cmd_validate(args):
     # rel_path 的基准 root 也要 realpath,否则算出 ../../private/var 长串。
     issues = validate_mod.validate_page(meta, has_fm, repo.rel_path(os.path.realpath(root), full), vocab)
     if args.json:
-        _emit({"path": args.path, "issues": issues}, True)
+        _emit({"path": args.path, "issues": issues})
     else:
         _print_issues(issues)
     sys.exit(1 if any(i["level"] == "error" for i in issues) else 0)
@@ -296,7 +305,7 @@ def cmd_lint(args):
     else:
         report = lint_mod.lint(root, vocab)
     if args.json:
-        _emit(report, True)
+        _emit(report)
     else:
         _print_report(report)
     if args.out:
@@ -312,7 +321,7 @@ def cmd_suggest(args):
     text = args.text or sys.stdin.read()
     res = suggest_mod.suggest_path(text, vocab, root)
     if args.json:
-        _emit(res, True)
+        _emit(res)
         return
     print(f"建议落位: {res['suggested_path']}")
     print(f"domain={res['domain'] or '(staging)'}  page_type={res['page_type']}  confidence={res['confidence']}")
@@ -333,7 +342,7 @@ def cmd_scan(args):
             text = sys.stdin.read()
         res = sens_mod.scan_text(text, vocab)
         if args.json:
-            _emit(res, True)
+            _emit(res)
         else:
             kinds = ",".join(k for k, v in res["hits"].items() if v) or "-"
             flag = "🔴" if res["any_hit"] else "·"
@@ -348,7 +357,7 @@ def cmd_scan(args):
     cover = "全库(含 archive/根级)" if include_archive else "仅 active 区"
     if args.json:
         report["coverage"] = cover
-        _emit(report, True)
+        _emit(report)
     else:
         print(f"扫描范围:{cover}")
         print(f"扫描完成:{report['total_findings']} 条 finding,其中 {report['risky_count']} 条高风险(命中敏感且声明不足)\n")
@@ -369,7 +378,7 @@ def cmd_publish(args):
         # 仅规划(dry-run)
         p = publish_mod.plan(root, vocab, include_archive=True)
         if args.json:
-            _emit(p, True)
+            _emit(p)
             return
         print(f"将导出 {len(p['included'])} 页;排除 {len(p['excluded'])} 页;风险 {len(p['risky'])} 页")
         if p["risky"]:
@@ -380,7 +389,7 @@ def cmd_publish(args):
         return
     res = publish_mod.export(root, args.out, vocab, include_archive=True, force=args.force)
     if args.json:
-        _emit(res, True)
+        _emit(res)
         return
     if not res["ok"]:
         print(f"❌ 导出被阻断:{res['reason']}")
@@ -468,7 +477,7 @@ def cmd_sync_team(args):
     root = _resolve_root(args)  # 个人库(同步目标)
     res = sync_mod.sync_team(root, args.team, do_pull=args.pull, dry_run=args.dry_run)
     if args.json:
-        _emit(res, True)
+        _emit(res)
         sys.exit(0 if res.get("ok") else 1)
     print(sync_mod.format_text(res))
     if not res.get("ok"):
@@ -478,7 +487,7 @@ def cmd_sync_team(args):
 # ---------- argparse ----------
 
 def build_parser() -> argparse.ArgumentParser:
-    p = argparse.ArgumentParser(prog="wiki", description="LLM Wiki 治理工具(只读)")
+    p = argparse.ArgumentParser(prog="wiki", description="LLM Wiki 治理工具(读写:检索/校验只读,init/new/sync-team/publish 写盘)")
     p.add_argument("--root", help="wiki 根路径(默认自动发现 / $WIKI_ROOT / ~/AI/wiki)")
     p.add_argument("--json", action="store_true", help="JSON 输出")
     sub = p.add_subparsers(dest="cmd", required=True)

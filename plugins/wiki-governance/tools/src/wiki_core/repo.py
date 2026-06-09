@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import os
 import subprocess
-from typing import Dict, Iterator, List, Optional, Tuple
+from typing import Iterator, List, Optional, Tuple
 
 # 识别 wiki 根的标记文件(任一存在即认为是 wiki 根)
 ROOT_MARKERS = ("AGENTS.md", "_routes.md", "_vocabulary.md")
@@ -66,11 +66,6 @@ def find_wiki_root_verbose(start: Optional[str] = None) -> Tuple[Optional[str], 
     if _is_root(PERSONAL_WIKI_FALLBACK):
         return PERSONAL_WIKI_FALLBACK, "personal-fallback"
     return None, "none"
-
-
-def find_wiki_root(start: Optional[str] = None) -> Optional[str]:
-    """find_wiki_root_verbose 的薄封装,只返回 root。"""
-    return find_wiki_root_verbose(start)[0]
 
 
 def resolve_in_root(root: str, p: str) -> Optional[str]:

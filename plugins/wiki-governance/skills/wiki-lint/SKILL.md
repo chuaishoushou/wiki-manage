@@ -7,7 +7,7 @@ allowed-tools: Read, Grep, Glob, Bash(git:*), Bash(python3:*), Write
 
 # wiki-lint:体检 / 安全审计
 
-> 调用约定:下文 `wiki-cli` 均指 `python3 "${CLAUDE_PLUGIN_ROOT}/tools/bin/wiki-cli"`(插件市场 / CC 装时该变量可用);命令正文沿用 wiki-cli 简写。
+> 调用约定:下文 `wiki-cli` 均指 `python3 "${CLAUDE_PLUGIN_ROOT:-${CURSOR_PLUGIN_ROOT:-${PLUGIN_ROOT}}}/tools/bin/wiki-cli"`(插件根变量:CC/Codex=CLAUDE_PLUGIN_ROOT,Cursor=CURSOR_PLUGIN_ROOT);命令正文沿用 wiki-cli 简写。
 
 > 确定性检查(同一仓任何机器同结果),AI 只判读 + 给修复建议;**修复(删除/移动)需该 domain owner 确认**。检查全部走 `wiki-cli` 子命令。
 

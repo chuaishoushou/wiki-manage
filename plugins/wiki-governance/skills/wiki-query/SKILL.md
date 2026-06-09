@@ -6,7 +6,7 @@ allowed-tools: Read, Grep, Glob, Bash(python3:*)
 
 # wiki-query:检索 + 综合 + 沉淀
 
-> 调用约定:下文 `wiki-cli` 均指 `python3 "${CLAUDE_PLUGIN_ROOT}/tools/bin/wiki-cli"`(插件市场 / CC 装时该变量可用);命令正文沿用 wiki-cli 简写。
+> 调用约定:下文 `wiki-cli` 均指 `python3 "${CLAUDE_PLUGIN_ROOT:-${CURSOR_PLUGIN_ROOT:-${PLUGIN_ROOT}}}/tools/bin/wiki-cli"`(插件根变量:CC/Codex=CLAUDE_PLUGIN_ROOT,Cursor=CURSOR_PLUGIN_ROOT);命令正文沿用 wiki-cli 简写。
 
 > 只读为主。规则真源是团队仓 `AGENTS.md` + `_routes.md` + `_vocabulary.md`。检索用 `wiki-cli` 子命令,也可直接 Grep/Read 库里的 `.md` 文件查知识。
 

@@ -13,20 +13,20 @@
 
 > 前置:python3 ≥3.8、git(路 B 还需 `claude` CLI),详见 [INSTALL.md 第 0 步](INSTALL.md)。
 
-先 clone 两个仓并设好库位置(顺序不能反——先有库,再装):
+先准备团队知识库 + 设库位置(先有库,再装):
 ```bash
-git clone https://github.com/chuaishoushou/wiki-manage.git ~/AI/wiki-manage
-git clone https://github.com/chuaishoushou/team-wiki.git   ~/AI/team-wiki
+git clone https://github.com/chuaishoushou/team-wiki.git ~/AI/team-wiki   # 团队知识(约定路径)
 echo 'export WIKI_ROOT="$HOME/AI/team-wiki"' >> ~/.zshrc && export WIKI_ROOT="$HOME/AI/team-wiki"
 # bash 用户把 ~/.zshrc 换成 ~/.bashrc
 ```
 
 再装插件,二选一:
 ```bash
-# 路 A(推荐,插件市场):在 Claude Code 里输入
+# 路 A(推荐,插件市场,无需 clone 工具仓——插件自带 wiki-cli):在 Claude Code 里输入
 #   /plugin marketplace add chuaishoushou/wiki-manage
 #   /plugin install wiki-governance@wiki-governance-marketplace
-# 路 B(不走市场,命令行):
+# 路 B(不走市场,命令行,需先 clone 工具仓):
+#   git clone https://github.com/chuaishoushou/wiki-manage.git ~/AI/wiki-manage
 python3 ~/AI/wiki-manage/bin/wiki-init --platform cc --wiki-root ~/AI/team-wiki --write
 ```
 然后重启 Claude Code。
@@ -35,7 +35,7 @@ python3 ~/AI/wiki-manage/bin/wiki-init --platform cc --wiki-root ~/AI/team-wiki 
 会话开头若看到 `[wiki] 未连接…`,就是 `~/AI/team-wiki` 不存在或 `WIKI_ROOT` 没设对。
 
 ### A-2. Codex / Cursor
-见下面 C 节(这两家没有插件机制,要用 wiki-init 写规则指针 + 设库路径)。
+见下面 C 节(这两家也有插件市场,可一键装;或用 wiki-init 写规则指针作备选)。
 
 ---
 
@@ -55,10 +55,15 @@ export WIKI_ROOT="$HOME/AI/team-wiki"
 
 ---
 
-## C. Codex / Cursor 安装(用 wiki-init 写规则指针 + 设库路径)
+## C. Codex / Cursor 安装(插件市场为主,wiki-init 备选)
 
-> **预期管理**:这两家没有 Claude Code 那种插件机制。"装" = 写一份规则指针(告诉 AI 团队库在哪、查知识直接 Read/Grep + 用 wiki-cli)+ 设好库路径。skill 自动触发在这两家不保证,**一致性靠规则指针 + wiki-cli**。先按 A-1 顶部 clone 好两个仓、设好 `WIKI_ROOT`。
+> **预期管理**:这两家也有插件市场、清单格式与 CC 高度一致,本仓已备好三家清单。先按 A-1 顶部准备好 team-wiki + 设好 `WIKI_ROOT`(路 A 插件市场无需 clone 工具仓;路 B/wiki-init 才需 `git clone wiki-manage`)。
 
+**路 A:插件市场(推荐)**
+- **Codex**:`codex plugin marketplace add chuaishoushou/wiki-manage`(命令名以 `codex plugin --help` 为准)→ 在 Codex 里 `/plugin install wiki-governance` → 重启。装 skills + hooks(不支持 slash command)。
+- **Cursor**:经市场面板安装(官方暂无 CLI 装命令);装好后用 `@wiki` 触发规则。装 skills + commands + rules(.mdc)。
+
+**路 B:wiki-init(不走市场)**
 ```bash
 # 先 dry-run 看将写什么(不加 --write 只打印)
 python3 ~/AI/wiki-manage/bin/wiki-init --platform codex --wiki-root ~/AI/team-wiki
@@ -67,7 +72,7 @@ python3 ~/AI/wiki-manage/bin/wiki-init --platform codex --wiki-root ~/AI/team-wi
 ```
 
 - **Codex**:写 `~/.codex/AGENTS.md` 用户级规则指针(跨工作区生效:库位置 + 用 Read/Grep 查知识、用 wiki-cli 做协议/检索/校验),然后**重启 Codex**。
-- **Cursor**:`wiki-init --platform cursor --write --cursor-project <项目根> --wiki-root ~/AI/team-wiki` 写 `.cursor/rules/wiki.mdc` 规则指针。**每个新项目都要重跑一次**;`.cursor/rules` 不保证自动触发,靠 `@wiki` 提及或直接让 AI Read/Grep 库文件并调 wiki-cli。
+- **Cursor**:`wiki-init --platform cursor --write --cursor-project <项目根> --wiki-root ~/AI/team-wiki` 写 `.cursor/rules/wiki.mdc` 规则指针。**每个新项目都要重跑一次**;靠 `@wiki` 提及或直接让 AI Read/Grep 库文件并调 wiki-cli。
 - 先单独验证库与工具就绪(隔离问题):
   ```bash
   WIKI_ROOT=~/AI/team-wiki python3 ~/AI/wiki-manage/plugins/wiki-governance/tools/bin/wiki-cli protocol
@@ -91,7 +96,7 @@ python3 ~/AI/wiki-manage/bin/wiki-init --platform codex --wiki-root ~/AI/team-wi
 | `[wiki] 未连接团队 wiki` | `~/AI/team-wiki` 不存在,或 `WIKI_ROOT` 指向的不是 wiki 根 |
 | protocol 显示 `root_source=personal-fallback` | 没设 `WIKI_ROOT` 且约定路径缺失 → 连到了个人库;clone team-wiki 到 `~/AI/team-wiki` 或 `export WIKI_ROOT` |
 | GUI/Desktop 启动连不上,终端能连 | GUI 不继承 shell 的 `export`;把库放在约定路径 `~/AI/team-wiki` 即可兜底 |
-| Codex 查不到团队知识 | `~/.codex/AGENTS.md` 规则指针是否写入、`~/AI/team-wiki` 是否存在;先跑上面的 `wiki-cli protocol` 看连接来源 |
+| Codex 查不到团队知识 | 插件是否装上(`/plugin` 看列表)或 `~/.codex/AGENTS.md` 规则指针是否写入;`~/AI/team-wiki` 是否存在;先跑上面的 `wiki-cli protocol` 看连接来源 |
 | Windows `python3` 找不到 | 装 Microsoft Store 版 Python(带 python3 别名),或给 `python` 建 `python3` 别名 |
 
 ## 我想贡献新知识(只读成员)
