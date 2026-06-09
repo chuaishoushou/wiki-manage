@@ -19,32 +19,21 @@
 
 **术语速查**:`team-wiki`=知识内容仓 · `wiki-manage`=工具/插件仓(本仓) · `flux-wiki`=本仓里那个跨平台插件 · `_vocabulary.md`=团队允许用的分类清单 · `AGENTS.md`=操作协议。
 
-## 🚀 团队成员安装(一个仓,三平台,零中断)
+## 🚀 团队成员安装(一个链接,一条命令)
 
-**只需要这一个链接。** clone 后一条命令:Claude / Codex 用户级全局生效,Cursor Pro 粘一次全局规则。**全程无确认弹窗。**
+**只需要这一个链接。** clone 后跑**同一条命令**,脚本自动探测本机装了哪些工具(Claude / Codex / Cursor),挨个配好:
 
 ```bash
-git clone https://github.com/chuaishoushou/wiki-manage
-cd wiki-manage
-# 设库路径:team-wiki 的本地 clone 或个人库(下文命令用 WIKI_ROOT,或 wiki-init 自动探测 ~/AI/team-wiki、~/AI/wiki)
+git clone https://github.com/chuaishoushou/wiki-manage && cd wiki-manage && ./install.sh
 ```
 
-**① Claude / Codex —— 一条命令,用户级全局**
-```bash
-./bin/wiki-init --platform all --write      # 也可 --platform cc / codex 单装
-```
-写 `~/.claude/CLAUDE.md`(+ 软链 skills/commands)和 `~/.codex/AGENTS.md` 规则指针 → 重启客户端即生效。
+- **Claude / Codex** → 自动配好(写 `~/.claude/CLAUDE.md` / `~/.codex/AGENTS.md` 规则指针 + Claude 软链 skills/命令),重启客户端即生效。
+- **Cursor** → 脚本会打印一段「User Rules」纯文本(已填好库路径);复制 → Cursor **设置 → Rules → User Rules** → 粘一次,管所有项目。**这是唯一的手动一步** —— Cursor 不允许脚本写全局规则(它没有可写的全局规则文件)。
 
-**② Cursor Pro —— 粘一次,全局**
-
-上面 `--platform all` 会顺带打印一段「User Rules」纯文本(已自动填好路径)。复制那整块 → Cursor **设置 → Rules → User Rules** → 粘一次,管所有项目。单独再看一次:
-```bash
-./bin/wiki-init --platform cursor           # 只打印 Cursor User Rules 块
-```
-> 想要版本可控?用 `./bin/wiki-init --platform cursor --write --cursor-project <项目>` 写进该项目 `.cursor/rules/`(每项目一次)。
-
-**更新**:`git pull` 后 —— Claude/Codex 重跑 `wiki-init --write`(软链版自动跟随,复制版需重跑);Cursor 重新粘一次 User Rules。
-**卸载/排障/原生插件市场备选**:见下「三平台安装机制」与 [docs/INSTALL.md](docs/INSTALL.md)。**脚本路与插件市场二选一,勿同时用(会重复加载)。**
+> 库路径默认自动探测 `~/AI/team-wiki` 或 `~/AI/wiki`;也可显式:`./install.sh ~/AI/team-wiki`。
+> 更新:`git pull` 后重跑 `./install.sh`(Cursor 重新粘一次 User Rules)。
+> Cursor 想用项目级规则替代全局:`./bin/wiki-init --platform cursor --write --cursor-project <项目>`。
+> 卸载 / 原生插件市场备选 / 排障:见 [docs/INSTALL.md](docs/INSTALL.md)。
 
 ## 我是谁,从哪开始
 

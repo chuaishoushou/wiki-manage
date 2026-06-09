@@ -34,7 +34,7 @@ def to_user_rule(text):
     """把 .mdc 规则转成 Cursor User Rules 可直接粘贴的纯文本。
 
     Cursor Pro 无可写的全局规则文件,全局规则只能在 设置→Rules→User Rules 里粘纯文本,
-    且不吃 .mdc frontmatter。故此处:① 去掉开头的 YAML frontmatter;② 去掉维护者用的
+    且不吃 .mdc frontmatter。故此处:① 去掉开头 YAML frontmatter;② 去掉维护者用的
     `>` blockquote 注记(对终端用户是噪音);③ 折叠多余空行。
     """
     if text.startswith("---"):
@@ -49,6 +49,20 @@ def to_user_rule(text):
             continue  # 折叠连续空行
         out.append(ln)
     return "\n".join(out).strip() + "\n"
+
+
+def has_claude():
+    return os.path.isdir(os.path.expanduser("~/.claude"))
+
+
+def has_codex():
+    return os.path.isdir(os.path.expanduser("~/.codex")) or shutil.which("codex") is not None
+
+
+def has_cursor():
+    return (os.path.isdir("/Applications/Cursor.app")
+            or os.path.isdir(os.path.expanduser("~/.cursor"))
+            or shutil.which("cursor") is not None)
 
 
 def _import_repo():
@@ -179,7 +193,7 @@ def do_codex(wiki_root, write):
 def do_cursor(wiki_root, write, project):
     banner("Cursor")
     rule = render("cursor/wiki.mdc", wiki_root)
-    # 项目级落地:--write --cursor-project <项目> 写进该项目的 .cursor/rules/(版本可控,但仅该项目生效)
+    # 可选:--cursor-project 写项目级规则(仅该项目);否则默认走全局 User Rules
     if write and project:
         proj = os.path.abspath(os.path.expanduser(project))
         rule_path = os.path.join(proj, ".cursor", "rules", "wiki.mdc")
@@ -188,13 +202,12 @@ def do_cursor(wiki_root, write, project):
             f.write(rule)
         print(f"  ✅ 写入 {rule_path}(项目级规则,仅该项目)")
         return
-    # Cursor Pro 推荐路径:全局 User Rules(粘一次,管所有项目;脚本无法代写,只能打印供复制)
-    print("【Cursor Pro 推荐 · 全局,粘一次】复制下面整块 → Cursor 设置 → Rules → User Rules:")
+    # 默认:全局 User Rules —— 脚本无法写 Cursor 全局规则,只能打印供手动粘一次(管所有项目)
+    print("⬇ 复制下面整段,粘进 Cursor:设置 → Rules → User Rules(全局,一次,管所有项目):")
     print("─" * 64)
     print(to_user_rule(rule))
     print("─" * 64)
-    print("（已自动填入你的库路径,无占位符,直接粘即可,管所有项目）")
-    print("\n或【项目级·版本可控】：--write --cursor-project <项目路径> 写进 <项目>/.cursor/rules/wiki.mdc（每项目一次）")
+    print("（库路径已自动填好;这是唯一的手动一步——Cursor 不允许脚本写全局规则）")
 
 
 def self_check(wiki_root):
@@ -220,12 +233,23 @@ def main():
     print(f"wiki 根    : {wiki_root}")
     print(f"模式       : {'写入' if args.write else '仅打印(加 --write 落地)'}")
 
+    # platform=all 时自动探测本机装了哪些工具,只配在装的(显式指定单平台则无条件执行)
+    auto = args.platform == "all"
     if args.platform in ("cc", "all"):
-        do_cc(wiki_root, args.write)
+        if not auto or has_claude():
+            do_cc(wiki_root, args.write)
+        else:
+            print("\n— Claude Code:未检测到 ~/.claude,跳过")
     if args.platform in ("codex", "all"):
-        do_codex(wiki_root, args.write)
+        if not auto or has_codex():
+            do_codex(wiki_root, args.write)
+        else:
+            print("— Codex:未检测到,跳过")
     if args.platform in ("cursor", "all"):
-        do_cursor(wiki_root, args.write, args.cursor_project)
+        if not auto or has_cursor():
+            do_cursor(wiki_root, args.write, args.cursor_project)
+        else:
+            print("— Cursor:未检测到,跳过")
 
     ok = self_check(wiki_root)
     sys.exit(0 if ok else 1)
