@@ -17,3 +17,6 @@ __pycache__/
 # 绝不能随工具仓分享给团队 —— 本地保留、不提交。
 docs/security-audit-*.md
 docs/lint-baseline-*.md
+
+# 插件打包产物
+plugins/*.zip

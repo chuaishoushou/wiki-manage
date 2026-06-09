@@ -22,7 +22,7 @@ claude --version      # 仅 Claude Code 用户需要(走插件市场或 wiki-ini
 
 ```bash
 git clone https://github.com/chuaishoushou/team-wiki.git   ~/AI/team-wiki      # 团队知识(约定路径,所有路径都要)
-git clone https://github.com/chuaishoushou/wiki-manage.git ~/AI/wiki-manage   # 工具/插件(仅路 B/wiki-init 需要;路 A 插件市场自带 wiki-cli,可跳过)
+git clone https://github.com/chuaishoushou/wiki-manage.git ~/AI/wiki-manage   # 工具/插件(必需:wiki-init 与 wiki-cli 都在此仓)
 echo 'export WIKI_ROOT="$HOME/AI/team-wiki"' >> ~/.zshrc && export WIKI_ROOT="$HOME/AI/team-wiki"
 # bash 用户把 ~/.zshrc 换成 ~/.bashrc;Windows PowerShell 用 setx WIKI_ROOT "%USERPROFILE%\AI\team-wiki"
 ```
@@ -34,46 +34,55 @@ echo 'export WIKI_ROOT="$HOME/AI/team-wiki"' >> ~/.zshrc && export WIKI_ROOT="$H
 
 ## 第 2 步:按平台安装
 
-### Claude Code —— 两条路,任选其一
+### Claude Code —— 主推 wiki-init(零中断),插件市场为备选
 
-**路 A:插件市场(推荐,最接近"一个链接")** —— 在 Claude Code 里输入:
+**路 A:wiki-init(推荐,无确认弹窗)**:
+```bash
+python3 ~/AI/wiki-manage/bin/wiki-init --platform cc --wiki-root ~/AI/team-wiki --write
+```
+软链 skill/命令 + 写规则指针(`~/.claude/CLAUDE.md` 告诉 AI 库在哪、查知识直接 Read/Grep + 调 wiki-cli),然后重启 Claude Code。(去掉 `--write` 只打印不落地,先看再执行。)
+
+**路 B:插件市场(备选,有 trust/enable 提示)** —— 在 Claude Code 里输入:
 ```
 /plugin marketplace add chuaishoushou/wiki-manage
 /plugin install flux-wiki@flux-wiki-marketplace
 ```
-重启 Claude Code 生效。skill / 命令 / hooks / 规则指针随插件一起装好。
+重启 Claude Code 生效,skill / 命令 / hooks / 规则指针随插件一起装好。
 
-**路 B:wiki-init(不走市场,git 手动)**:
-```bash
-python3 ~/AI/wiki-manage/bin/wiki-init --platform cc --wiki-root ~/AI/team-wiki --write
-```
-链接 skill/命令 + 写规则指针(`~/.claude/CLAUDE.md` 告诉 AI 库在哪、查知识直接 Read/Grep + 调 wiki-cli),然后重启 Claude Code。(去掉 `--write` 只打印不落地,先看再执行。)
+> ⚠️ 两条路**二选一,勿同时用**(skill/命令会重复加载)。都依赖第 1 步的 `~/AI/team-wiki`;从 GUI/Desktop 启动 CC 不继承终端 `export`,但库在约定路径时 wiki-cli 仍自动兜底连上团队库。
 
-> 两条路都依赖第 1 步的 `~/AI/team-wiki`。从 GUI/Desktop 启动 CC 时不会继承终端的 `export`,但因为库在约定路径,wiki-cli 仍能自动兜底连上团队库。
+### Codex —— 主推 wiki-init,插件市场为备选
 
-### Codex —— 两条路,任选其一
-
-**路 A:插件市场(推荐)** —— 本仓已备 `.codex-plugin/plugin.json` + `.agents/plugins/marketplace.json`:
-```bash
-codex plugin marketplace add chuaishoushou/wiki-manage   # 命令名以 `codex plugin --help` 为准
-```
-然后在 Codex 里 `/plugin install flux-wiki`,**重启 Codex**。装的是 skills + hooks(Codex 不支持 slash command,故不含 commands)。
-
-**路 B:wiki-init(不走市场,git 手动)**:
+**路 A:wiki-init(推荐,无确认弹窗)**:
 ```bash
 python3 ~/AI/wiki-manage/bin/wiki-init --platform codex --wiki-root ~/AI/team-wiki --write
 ```
 写入 `~/.codex/AGENTS.md` 规则指针(告诉 AI 团队库位置 + 用 Read/Grep 查知识、用 wiki-cli 做协议/检索/校验),然后**重启 Codex**。
 
-### Cursor —— 两条路,任选其一
+**路 B:插件市场(备选)** —— 本仓已备 `.codex-plugin/plugin.json` + `.agents/plugins/marketplace.json`:
+```bash
+codex plugin marketplace add chuaishoushou/wiki-manage   # 命令名以 `codex plugin --help` 为准
+codex plugin install flux-wiki
+```
+重启 Codex。装的是 skills + hooks(Codex 不支持 slash command,故不含 commands)。
 
-**路 A:插件市场(推荐)** —— 本仓已备 `.cursor-plugin/plugin.json` + `.cursor-plugin/marketplace.json` + `rules/wiki.mdc`。Cursor 经**市场面板安装**(官方暂无 CLI 装命令;提交市场见 `cursor.com/marketplace/publish`)。装好后用 `@wiki` 触发规则,让 AI 直接 Read/Grep 库文件并调 wiki-cli。
+> ⚠️ 二选一,勿同时用。
 
-**路 B:wiki-init(每个项目配一次)**:
+### Cursor Pro —— 主推 User Rules(全局粘一次)
+
+> Cursor Pro 无自托管插件市场(team marketplace 仅 Teams/Enterprise),也无可写的全局规则文件。故走 **User Rules 粘贴**(一次性全局)或项目级 `.cursor/rules/`。
+
+**路 A:User Rules 全局(推荐,粘一次管所有项目)**:
+```bash
+python3 ~/AI/wiki-manage/bin/wiki-init --platform cursor --wiki-root ~/AI/team-wiki
+```
+复制打印出的「User Rules」纯文本块(已自动填好路径,无占位符)→ Cursor **设置 → Rules → User Rules** → 粘一次。之后对话涉及 wiki 时,AI 按规则直接 Read/Grep 库文件并调 wiki-cli。
+
+**路 B:项目级规则(版本可控,每项目一次)**:
 ```bash
 python3 ~/AI/wiki-manage/bin/wiki-init --platform cursor --wiki-root ~/AI/team-wiki --cursor-project <项目根> --write
 ```
-写入该项目的 `.cursor/rules/wiki.mdc` 规则指针,然后重启 Cursor。每个要用团队 wiki 的项目重复一次;在 Cursor 里用 `@wiki` 触发,让 AI 直接 Read/Grep 库文件并调 wiki-cli。
+写入该项目 `.cursor/rules/wiki.mdc`,重启 Cursor,用 `@wiki` 触发。每个要用团队 wiki 的项目重复一次。
 
 ---
 
@@ -97,32 +106,32 @@ WIKI_ROOT=~/AI/team-wiki python3 ~/AI/wiki-manage/plugins/flux-wiki/tools/bin/wi
 git -C ~/AI/wiki-manage pull     # 更新工具(路 B 的 skill 经符号链接即时生效;wiki-cli 即时生效)
 git -C ~/AI/team-wiki  pull     # 更新团队知识(= /wiki-sync)
 ```
-- 走插件市场(路 A)的 CC 用户:`/plugin marketplace update` 拉取工具更新。
+- 走插件市场(备选路)的 CC 用户:`/plugin marketplace update` 拉取工具更新。
 - 想钉到稳定版:`git -C ~/AI/wiki-manage checkout <tag>`;回滚:`git checkout <commit>`。
 
 ## 卸载(可逆)
 
 ```bash
-# 路 A:在 CC 里 /plugin uninstall flux-wiki@flux-wiki-marketplace
-# 路 B:
+# wiki-init 装的(主路):
 rm ~/.claude/skills/wiki-ingest ~/.claude/skills/wiki-query ~/.claude/skills/wiki-lint
 rm ~/.claude/commands/wiki-*.md   # wiki-sync.md / wiki-sync-team.md / wiki-help.md
-# 删除 ~/.claude/CLAUDE.md 中 "wiki-init" 标记的那一段(规则指针)
+# 删除 ~/.claude/CLAUDE.md 中以 "# === flux-wiki (auto by wiki-init) ===" 起的那一段(规则指针)
+# 插件市场装的(备选路):在 CC 里 /plugin uninstall flux-wiki@flux-wiki-marketplace
 ```
 
 ---
 
-## 平台成熟度(诚实)
+## 三平台机制(诚实)
 
-三平台都有插件市场、清单格式高度一致,本仓同时提供三家清单。组件支持有差异:
+统一主推 wiki-init(零中断),插件市场为备选。组件支持有差异:
 
-| 平台 | 安装 | 组件 |
-|---|---|---|
-| **Claude Code** | 插件市场(路 A)或 wiki-init(路 B) | skills + slash 命令 + hooks 自动加载 |
-| **Codex** | 插件市场(路 A,`codex plugin marketplace add`)或 wiki-init(路 B) | skills + hooks(**不支持 slash command**) |
-| **Cursor** | 市场面板安装(路 A,无 CLI 命令)或 wiki-init(路 B) | skills + commands + rules(.mdc);**hooks 留空**(规避跨平台格式差异,开场指引交给 `@wiki` 规则) |
+| 平台 | 主推(wiki-init) | 备选 | 组件 |
+|---|---|---|---|
+| **Claude Code** | 写 CLAUDE.md 指针 + 软链 skills/命令(用户级全局) | 插件市场(有 trust 提示) | skills + slash 命令 + hooks |
+| **Codex** | 写 `~/.codex/AGENTS.md` 指针(用户级全局) | `codex plugin marketplace add` | skills + hooks(**不支持 slash command**) |
+| **Cursor Pro** | User Rules 全局粘一次 / 项目级 `.cursor/rules` | ❌ 无自托管市场(仅 Teams/Enterprise) | rules(.mdc);走市场时另有 skills/commands |
 
-> 实测边界(诚实):本机仅 Claude Code 可端到端验证(`claude plugin validate` 通过);Codex/Cursor 清单已逐字段对官方文档核实,但真机 `marketplace add` / 安装体验需在装有对应 CLI 的机器上确认。
+> 实测边界(诚实):本机仅 Claude Code 可端到端验证(`claude plugin validate` 通过、wiki-init 落地);Codex/Cursor 的真机 `marketplace add` / 安装体验需在装有对应 CLI 的机器上确认。
 
 > **维护者 checklist**(三家 plugin.json 声明粒度不同,漏声明不报错、只静默缺功能,加/改组件时对照):
 >

@@ -30,6 +30,27 @@ def render(rel_path, wiki_root):
                 .replace("{{WIKI_ROOT}}", wiki_root))
 
 
+def to_user_rule(text):
+    """把 .mdc 规则转成 Cursor User Rules 可直接粘贴的纯文本。
+
+    Cursor Pro 无可写的全局规则文件,全局规则只能在 设置→Rules→User Rules 里粘纯文本,
+    且不吃 .mdc frontmatter。故此处:① 去掉开头的 YAML frontmatter;② 去掉维护者用的
+    `>` blockquote 注记(对终端用户是噪音);③ 折叠多余空行。
+    """
+    if text.startswith("---"):
+        idx = text.find("\n---", 3)  # 第二个 --- 行
+        if idx != -1:
+            nl = text.find("\n", idx + 1)
+            text = text[nl + 1:] if nl != -1 else ""
+    lines = [ln for ln in text.splitlines() if not ln.lstrip().startswith(">")]
+    out = []
+    for ln in lines:
+        if ln.strip() == "" and out and out[-1].strip() == "":
+            continue  # 折叠连续空行
+        out.append(ln)
+    return "\n".join(out).strip() + "\n"
+
+
 def _import_repo():
     """惰性导入 CLI 的 wiki_core.repo,只为复用其合法根判定(_is_root)。
 
@@ -158,17 +179,22 @@ def do_codex(wiki_root, write):
 def do_cursor(wiki_root, write, project):
     banner("Cursor")
     rule = render("cursor/wiki.mdc", wiki_root)
+    # 项目级落地:--write --cursor-project <项目> 写进该项目的 .cursor/rules/(版本可控,但仅该项目生效)
     if write and project:
         proj = os.path.abspath(os.path.expanduser(project))
         rule_path = os.path.join(proj, ".cursor", "rules", "wiki.mdc")
         os.makedirs(os.path.dirname(rule_path), exist_ok=True)
         with open(rule_path, "w", encoding="utf-8") as f:
             f.write(rule)
-        print(f"  ✅ 写入 {rule_path}")
-    else:
-        print(".cursor/rules/wiki.mdc :\n")
-        print(rule)
-        print("(加 --write --cursor-project <项目路径> 自动落地;每个项目一次)")
+        print(f"  ✅ 写入 {rule_path}(项目级规则,仅该项目)")
+        return
+    # Cursor Pro 推荐路径:全局 User Rules(粘一次,管所有项目;脚本无法代写,只能打印供复制)
+    print("【Cursor Pro 推荐 · 全局,粘一次】复制下面整块 → Cursor 设置 → Rules → User Rules:")
+    print("─" * 64)
+    print(to_user_rule(rule))
+    print("─" * 64)
+    print("（已自动填入你的库路径,无占位符,直接粘即可,管所有项目）")
+    print("\n或【项目级·版本可控】：--write --cursor-project <项目路径> 写进 <项目>/.cursor/rules/wiki.mdc（每项目一次）")
 
 
 def self_check(wiki_root):

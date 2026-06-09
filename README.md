@@ -17,7 +17,34 @@
        1-2 名维护者写,15 人只读                成员装它来查/维护者用它来管
 ```
 
-**术语速查**:`team-wiki`=知识内容仓 · `wiki-manage`=工具/插件仓(本仓) · `flux-wiki`=本仓里那个 Claude Code 插件 · `_vocabulary.md`=团队允许用的分类清单 · `AGENTS.md`=操作协议。
+**术语速查**:`team-wiki`=知识内容仓 · `wiki-manage`=工具/插件仓(本仓) · `flux-wiki`=本仓里那个跨平台插件 · `_vocabulary.md`=团队允许用的分类清单 · `AGENTS.md`=操作协议。
+
+## 🚀 团队成员安装(一个仓,三平台,零中断)
+
+**只需要这一个链接。** clone 后一条命令:Claude / Codex 用户级全局生效,Cursor Pro 粘一次全局规则。**全程无确认弹窗。**
+
+```bash
+git clone https://github.com/chuaishoushou/wiki-manage
+cd wiki-manage
+# 设库路径:team-wiki 的本地 clone 或个人库(下文命令用 WIKI_ROOT,或 wiki-init 自动探测 ~/AI/team-wiki、~/AI/wiki)
+```
+
+**① Claude / Codex —— 一条命令,用户级全局**
+```bash
+./bin/wiki-init --platform all --write      # 也可 --platform cc / codex 单装
+```
+写 `~/.claude/CLAUDE.md`(+ 软链 skills/commands)和 `~/.codex/AGENTS.md` 规则指针 → 重启客户端即生效。
+
+**② Cursor Pro —— 粘一次,全局**
+
+上面 `--platform all` 会顺带打印一段「User Rules」纯文本(已自动填好路径)。复制那整块 → Cursor **设置 → Rules → User Rules** → 粘一次,管所有项目。单独再看一次:
+```bash
+./bin/wiki-init --platform cursor           # 只打印 Cursor User Rules 块
+```
+> 想要版本可控?用 `./bin/wiki-init --platform cursor --write --cursor-project <项目>` 写进该项目 `.cursor/rules/`(每项目一次)。
+
+**更新**:`git pull` 后 —— Claude/Codex 重跑 `wiki-init --write`(软链版自动跟随,复制版需重跑);Cursor 重新粘一次 User Rules。
+**卸载/排障/原生插件市场备选**:见下「三平台安装机制」与 [docs/INSTALL.md](docs/INSTALL.md)。**脚本路与插件市场二选一,勿同时用(会重复加载)。**
 
 ## 我是谁,从哪开始
 
@@ -33,17 +60,19 @@
 
 **做 plugin,plugin 里装的就是 skill;但内核是三家都能读的纯 markdown(`AGENTS.md`+`_vocabulary.md`+`SKILL.md`),查知识就是 AI 直接 Read/Grep 库文件 + Bash 调 `wiki-cli`,plugin 只是 Claude Code 侧的最佳投递。** 完整论证见 spec §1。
 
-## 平台成熟度(重要预期管理)
+## 三平台安装机制(预期管理)
 
-**三平台都有插件市场、清单格式高度一致**,本仓同时备好三家清单,一键装。组件支持有差异:
+**统一走 git clone + `wiki-init`(见上「团队成员安装」),零中断、不依赖插件市场。** 这是团队主推路 —— 因为 Cursor Pro 用不了自托管插件市场,且 Claude/Codex 的 `marketplace add`/`install` 有 trust 提示会打断。各平台机制与范围:
 
-| 平台 | 插件清单 | 安装 | 组件 |
+| 平台 | wiki-init 装法(主推) | 范围 | 原生插件市场(备选) |
 |---|---|---|---|
-| **Claude Code** | `.claude-plugin/plugin.json` | `/plugin marketplace add chuaishoushou/wiki-manage` → `/plugin install` | skills + commands + hooks |
-| **Codex** | `.codex-plugin/plugin.json` | `codex plugin marketplace add chuaishoushou/wiki-manage` → `/plugin install`(命令名以 `codex plugin --help` 为准) | skills + hooks(**不支持 commands**) |
-| **Cursor** | `.cursor-plugin/plugin.json` | 市场面板安装(官方暂无 CLI 装命令) | skills + commands + rules(.mdc) |
+| **Claude Code** | 写 `~/.claude/CLAUDE.md` 指针 + 软链 skills/commands | 用户级全局 | `/plugin marketplace add chuaishoushou/wiki-manage`(有 trust 提示) |
+| **Codex** | 写 `~/.codex/AGENTS.md` 指针 | 用户级全局 | `codex plugin marketplace add chuaishoushou/wiki-manage`(命令以 `codex plugin --help` 为准) |
+| **Cursor Pro** | 打印 User Rules 纯文本 → 粘进 设置→Rules 一次 | 全局(粘一次) | ❌ 无(team marketplace 仅 Teams/Enterprise) |
 
-每家也都保留 `wiki-init`(不走市场、git 手动写规则指针)作备选。跨平台一致的内核靠**确定性的 `wiki-cli` + 库本地 .md**:AI 直接读本地 .md 查知识,用 CLI 做协议/检索/校验。skill 自动触发是 Claude Code 强项,Codex/Cursor 上以实测为准。
+> **为什么 Cursor 不一样**:Cursor Pro 无可写的全局规则文件(全局只能在 设置→Rules→User Rules 粘纯文本),也用不了自托管插件市场,故走 **User Rules 粘贴**(一次性全局)或项目级 `.cursor/rules/`(脚本可写,但仅该项目)。
+>
+> 跨平台一致的内核 = 确定性的 **`wiki-cli` + 库本地 .md**:AI 直接读库 .md 查知识,用 CLI 做协议/检索/校验。三家清单(`.claude-plugin` / `.codex-plugin` / `.cursor-plugin`)本仓都备着,供想走原生插件 UI 的人用;skill 自动触发是 Claude Code 强项,Codex/Cursor 上以实测为准。
 
 ## 工具能力(只读;纯 CLI + 直接读文件)
 
@@ -106,4 +135,4 @@ wiki-cli init ~/AI/wiki2 --check         # 结构健康检查:缺层级会报并
 v0 安全基线 → **v1 git+插件/skill+冷启动 scaffolder**(已实现)→ **v2 CLI + 规则指针**(已实现)→ v3 Web(后期)。
 
 ## License
-TBD
+MIT — 见 [LICENSE](LICENSE)

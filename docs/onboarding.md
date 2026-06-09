@@ -22,20 +22,20 @@ echo 'export WIKI_ROOT="$HOME/AI/team-wiki"' >> ~/.zshrc && export WIKI_ROOT="$H
 
 再装插件,二选一:
 ```bash
-# 路 A(推荐,插件市场,无需 clone 工具仓——插件自带 wiki-cli):在 Claude Code 里输入
+# 路 A(推荐,wiki-init,零中断):先 clone 工具仓,再跑一条命令
+git clone https://github.com/chuaishoushou/wiki-manage.git ~/AI/wiki-manage
+python3 ~/AI/wiki-manage/bin/wiki-init --platform cc --wiki-root ~/AI/team-wiki --write
+# 路 B(备选,插件市场,有 trust/enable 提示):在 Claude Code 里输入
 #   /plugin marketplace add chuaishoushou/wiki-manage
 #   /plugin install flux-wiki@flux-wiki-marketplace
-# 路 B(不走市场,命令行,需先 clone 工具仓):
-#   git clone https://github.com/chuaishoushou/wiki-manage.git ~/AI/wiki-manage
-python3 ~/AI/wiki-manage/bin/wiki-init --platform cc --wiki-root ~/AI/team-wiki --write
 ```
-然后重启 Claude Code。
+然后重启 Claude Code。**两条路二选一,勿同时用(会重复加载)。**
 
 **验收**:新开会话问 AI「团队 wiki 有哪些 domain?」——答得出 = 成了。
 会话开头若看到 `[wiki] 未连接…`,就是 `~/AI/team-wiki` 不存在或 `WIKI_ROOT` 没设对。
 
 ### A-2. Codex / Cursor
-见下面 C 节(这两家也有插件市场,可一键装;或用 wiki-init 写规则指针作备选)。
+见下面 C 节(主推 wiki-init 写规则指针;Codex 另有插件市场备选,Cursor Pro 走 User Rules 粘贴)。
 
 ---
 
@@ -55,24 +55,24 @@ export WIKI_ROOT="$HOME/AI/team-wiki"
 
 ---
 
-## C. Codex / Cursor 安装(插件市场为主,wiki-init 备选)
+## C. Codex / Cursor 安装(主推 wiki-init,Codex 插件市场为备选)
 
-> **预期管理**:这两家也有插件市场、清单格式与 CC 高度一致,本仓已备好三家清单。先按 A-1 顶部准备好 team-wiki + 设好 `WIKI_ROOT`(路 A 插件市场无需 clone 工具仓;路 B/wiki-init 才需 `git clone wiki-manage`)。
+> **预期管理**:统一主推 wiki-init(零中断)。先按 A-1 顶部准备好 team-wiki + 设好 `WIKI_ROOT`,并 `git clone wiki-manage`。Cursor Pro 无自托管市场、无可写全局规则文件,故走 User Rules 粘贴或项目级规则。
 
-**路 A:插件市场(推荐)**
-- **Codex**:`codex plugin marketplace add chuaishoushou/wiki-manage`(命令名以 `codex plugin --help` 为准)→ 在 Codex 里 `/plugin install flux-wiki` → 重启。装 skills + hooks(不支持 slash command)。
-- **Cursor**:经市场面板安装(官方暂无 CLI 装命令);装好后用 `@wiki` 触发规则。装 skills + commands + rules(.mdc)。
-
-**路 B:wiki-init(不走市场)**
+**Codex —— 路 A:wiki-init(推荐)**
 ```bash
-# 先 dry-run 看将写什么(不加 --write 只打印)
-python3 ~/AI/wiki-manage/bin/wiki-init --platform codex --wiki-root ~/AI/team-wiki
-# 确认后落地
+# 先 dry-run 看将写什么(不加 --write 只打印),确认后加 --write 落地
 python3 ~/AI/wiki-manage/bin/wiki-init --platform codex --wiki-root ~/AI/team-wiki --write
 ```
+写 `~/.codex/AGENTS.md` 用户级规则指针(跨工作区:库位置 + 用 Read/Grep 查知识、用 wiki-cli 做协议/检索/校验),然后**重启 Codex**。
+**Codex —— 路 B:插件市场(备选)**:`codex plugin marketplace add chuaishoushou/wiki-manage` → `codex plugin install flux-wiki` → 重启(命令以 `codex plugin --help` 为准)。装 skills + hooks。
 
-- **Codex**:写 `~/.codex/AGENTS.md` 用户级规则指针(跨工作区生效:库位置 + 用 Read/Grep 查知识、用 wiki-cli 做协议/检索/校验),然后**重启 Codex**。
-- **Cursor**:`wiki-init --platform cursor --write --cursor-project <项目根> --wiki-root ~/AI/team-wiki` 写 `.cursor/rules/wiki.mdc` 规则指针。**每个新项目都要重跑一次**;靠 `@wiki` 提及或直接让 AI Read/Grep 库文件并调 wiki-cli。
+**Cursor Pro —— 路 A:User Rules 全局(推荐,粘一次管所有项目)**
+```bash
+python3 ~/AI/wiki-manage/bin/wiki-init --platform cursor --wiki-root ~/AI/team-wiki
+```
+复制打印出的「User Rules」纯文本块(已填好路径)→ Cursor 设置 → Rules → User Rules → 粘一次。
+**Cursor Pro —— 路 B:项目级规则**:`wiki-init --platform cursor --write --cursor-project <项目根> --wiki-root ~/AI/team-wiki` 写 `.cursor/rules/wiki.mdc`,**每个项目重跑一次**,用 `@wiki` 触发。
 - 先单独验证库与工具就绪(隔离问题):
   ```bash
   WIKI_ROOT=~/AI/team-wiki python3 ~/AI/wiki-manage/plugins/flux-wiki/tools/bin/wiki-cli protocol
