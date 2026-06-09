@@ -1,21 +1,18 @@
 #!/usr/bin/env bash
 #
-# flux-wiki 一键安装 —— 团队成员只需要这一条命令(三平台统一,自动探测):
+# flux-wiki 一键安装(macOS / Linux)。本仓不是原生插件,这是唯一安装入口。
 #
-#   git clone https://github.com/chuaishoushou/wiki-manage && cd wiki-manage && ./install.sh
+#   git clone https://github.com/chuaishoushou/wiki-manage.git ~/AI/wiki-manage
+#   cd ~/AI/wiki-manage
+#   ./install.sh
 #
-# 运行时会(在终端里)交互询问两个库的位置:
-#   ① 个人库 —— 你日常读写/入库的主库(不存在会自动建;默认 ~/AI/wiki)
-#   ② 团队仓 —— 团队知识源的本地 git clone(只读;默认 ~/AI/team-wiki;还没 clone 会提示你 clone)
+# 人工跑(无参):在终端里交互逐项询问 ① 个人库 ② 团队仓 的位置(回车用默认),
+# 写完三平台规则指针后,再问你是否现在初始化个人库(默认否)。
 #
-# 脚本会自动认出本机装了 Claude Code / Codex / Cursor,挨个配好:
-#   - Claude Code : 写 ~/.claude/CLAUDE.md 指针 + 软链 skills/命令(全局,自动)
-#   - Codex       : 写 ~/.codex/AGENTS.md 指针(全局,自动)
-#   - Cursor      : 打印一段规则文本,你粘进 设置→Rules→User Rules 一次(全局,手动一步)
+# AI 助手请勿裸跑本脚本 —— 你执行命令时 stdin 不是终端,问不到用户。
+# 正确做法见 README『给 AI 助手的执行指令』:先在对话里问用户,再用参数直接调 bin/wiki-init。
 #
-# 不想交互?直接按顺序给路径(个人库 团队仓),或用环境变量:
-#   ./install.sh ~/AI/wiki ~/AI/team-wiki
-#   PERSONAL_ROOT=~/AI/wiki TEAM_ROOT=~/AI/team-wiki ./install.sh
+# 透传:本脚本把所有参数原样转交 bin/wiki-init;未给 --platform 时补 all、未给 --write 时补 --write。
 #
 set -uo pipefail
 
@@ -29,20 +26,12 @@ if ! command -v "$PY" >/dev/null 2>&1; then
   exit 1
 fi
 
-# 两个库位置:位置参数 $1=个人库 $2=团队仓;或环境变量 PERSONAL_ROOT / TEAM_ROOT
-# (兼容旧 WIKI_ROOT=个人库)。都不给时,wiki-init 在终端里逐项交互询问(回车用默认)。
-ARGS=(--platform all --write)
-if [ "${1:-}" != "" ]; then
-  ARGS+=(--personal-root "$1")
-elif [ "${PERSONAL_ROOT:-}" != "" ]; then
-  ARGS+=(--personal-root "$PERSONAL_ROOT")
-elif [ "${WIKI_ROOT:-}" != "" ]; then
-  ARGS+=(--personal-root "$WIKI_ROOT")
-fi
-if [ "${2:-}" != "" ]; then
-  ARGS+=(--team-root "$2")
-elif [ "${TEAM_ROOT:-}" != "" ]; then
-  ARGS+=(--team-root "$TEAM_ROOT")
-fi
+# 智能透传:缺 --platform 补 all、缺 --write 补 --write,其余参数原样传给 wiki-init。
+# (AI 若裸跑本脚本→补出 --write 但无库路径,wiki-init 在非 TTY 下会 exit 2 拦截,不会静默装错。)
+EXTRA=()
+case " $* " in *"--platform"*) ;; *) EXTRA+=(--platform all) ;; esac
+case " $* " in *"--write"*) ;; *) EXTRA+=(--write) ;; esac
 
-exec "$PY" "$HERE/bin/wiki-init" "${ARGS[@]}"
+# 注:bash 3.2(macOS 自带)下,空数组 "${EXTRA[@]}" 在 set -u 会报 unbound;
+# 用 ${arr[@]+"${arr[@]}"} 惯用法安全展开(空→什么都不加,非空→保留各元素)。
+exec "$PY" "$HERE/bin/wiki-init" ${EXTRA[@]+"${EXTRA[@]}"} "$@"

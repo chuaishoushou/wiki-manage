@@ -23,7 +23,11 @@ def _resolve_root_verbose(args):
     """解析 wiki 根,返回 (root, source);找不到则报错退出,personal 兜底发告警。"""
     root, source = repo.find_wiki_root_verbose(getattr(args, "root", None))
     if not root:
-        if source == "env-invalid":
+        if source == "start-invalid":
+            sys.stderr.write("错误:--root 指向的路径不是有效 wiki 根(缺 AGENTS.md/_routes.md/_vocabulary.md)。下一步二选一:\n"
+                             "  · 若这是个还没初始化的新库:wiki-cli init \"<该路径>\" 建一个(幂等,可重复跑)\n"
+                             "  · 若指错了:修正 --root 指向真正的 wiki 根(已拒绝静默回退到默认库)\n")
+        elif source == "env-invalid":
             sys.stderr.write("错误:WIKI_ROOT 指向的路径不是有效 wiki 根(缺 AGENTS.md/_routes.md/_vocabulary.md)。下一步二选一:\n"
                              "  · 若这是个还没初始化的新库:wiki-cli init \"<该路径>\" 建一个(幂等,可重复跑)\n"
                              "  · 若指错了:修正 WIKI_ROOT 指向真正的 wiki 根(已拒绝静默回退到默认库)\n")

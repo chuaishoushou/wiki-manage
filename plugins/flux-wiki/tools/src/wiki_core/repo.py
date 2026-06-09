@@ -27,7 +27,7 @@ def find_wiki_root_verbose(start: Optional[str] = None) -> Tuple[Optional[str], 
     """查找 wiki 根并返回来源,便于成员自查"我连到的是哪个库"。
 
     返回 (root, source),source ∈
-        {start, env, env-invalid, team-default, cwd, personal-fallback, none}。
+        {start, start-invalid, env, env-invalid, team-default, cwd, personal-fallback, none}。
     优先级:
       1. 显式 start(CLI --root / 调用方传入)
       2. $WIKI_ROOT 非空:合法→env;非法→(None,'env-invalid') 硬失败,绝不静默回退
@@ -39,9 +39,13 @@ def find_wiki_root_verbose(start: Optional[str] = None) -> Tuple[Optional[str], 
     避免团队成员配错路径时悄悄拿到别的库。
     """
     if start:
-        cand = os.path.abspath(start)
+        cand = os.path.abspath(os.path.expanduser(start))
         if _is_root(cand):
             return cand, "start"
+        # 显式给了 start(--root)却不是有效 wiki 根 → 硬失败,绝不静默兜底到 env/team-default/cwd。
+        # 与 env-invalid 平行:显式指定的严格度必须 >= 环境变量,否则 --root 锁库会被悄悄换成别的库
+        # (实测旧行为:--root /不存在 会落到 team-default 假通过 exit 0)。
+        return None, "start-invalid"
 
     env_root = os.environ.get("WIKI_ROOT")
     if env_root:

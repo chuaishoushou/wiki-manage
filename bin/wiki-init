@@ -9,12 +9,15 @@
 默认只打印(安全);--write 才落地。未显式给路径且在终端运行时,交互式逐项询问两个库的位置。
 
 用法:
-  bin/wiki-init                                    # 交互询问个人库/团队仓 + 打印三家指针 + 自检
-  bin/wiki-init --personal-root ~/AI/wiki --team-root ~/AI/team-wiki --write
+  bin/wiki-init                                    # 人工交互:逐项问个人库/团队仓 → 写三家指针 → 问是否初始化 → 自检
+  bin/wiki-init --platform cc --personal-root ~/AI/wiki --team-root ~/AI/team-wiki --write --no-input --no-init
+                                                   # AI 用:全参数非交互,零提问,确定退出码
+  bin/wiki-init --platform cursor --personal-root ~/AI/wiki --team-root ~/AI/team-wiki --no-input
+                                                   # Cursor:不加 --write,把 User Rules 打到 stdout 供粘贴
   bin/wiki-init --wiki-root ~/AI/wiki              # [兼容别名] --wiki-root = --personal-root
-  bin/wiki-init --platform codex --write           # 写 ~/.codex/AGENTS.md 指针
-  bin/wiki-init --platform cursor --cursor-project ~/proj --write   # 写 ~/proj/.cursor/rules/wiki.mdc
-  bin/wiki-init --no-input                         # 跳过交互(用默认/已给参数;CI/管道)
+
+约定:--init / --no-init 控制安装后是否初始化个人库(默认不初始化,只问/按需,不自动建)。
+     AI 执行时 stdin 非 TTY,务必用参数传库路径——裸跑(--write 无路径且非 TTY)会被拦截退出 2。
 """
 import argparse
 import os
@@ -112,46 +115,60 @@ def _ask_path(title, hint, default):
 
 
 def resolve_personal(arg, repo, interactive):
-    """个人库(WIKI_ROOT/日常读写主库)。优先级:
-    --personal-root/--wiki-root > $WIKI_ROOT > 交互询问 > 默认 ~/AI/wiki。"""
-    default = repo.PERSONAL_WIKI_FALLBACK if repo is not None else _abspath("~/AI/wiki")
+    """个人库(WIKI_ROOT/日常读写主库)。
+    显式 --personal-root/--wiki-root → 直接用(AI 模式,不问);
+    否则交互模式必问(默认值取 $WIKI_ROOT 或约定 ~/AI/wiki);非交互无参用默认。
+    关键:交互模式即使 $WIKI_ROOT 已设、库已存在也要问(env 仅作默认值)——满足'不管是否已配都询问'。"""
     if arg:
         return _abspath(arg)
     env = os.environ.get("WIKI_ROOT")
-    if env:
-        return _abspath(env)
+    default = _abspath(env) if env else (repo.PERSONAL_WIKI_FALLBACK if repo is not None else _abspath("~/AI/wiki"))
     if interactive:
-        return _ask_path("① 个人库目录(你日常读写/入库的主库,不存在会自动创建)",
-                         "团队知识会镜像同步进它的 team/ 区;通常 ~/AI/wiki", default)
+        return _ask_path("① 个人库目录(你日常读写/入库的主库,稍后可选择是否初始化)",
+                         "通常 ~/AI/wiki;团队知识可 sync 进它的 team/ 区", default)
     return default
 
 
 def resolve_team(arg, repo, interactive):
-    """团队仓本地 clone(只读知识源)。优先级:
-    --team-root > $TEAM_ROOT > 交互询问 > 默认 ~/AI/team-wiki。"""
-    default = repo.TEAM_WIKI_FALLBACK if repo is not None else _abspath("~/AI/team-wiki")
+    """团队仓本地 clone(只读知识源)。
+    显式 --team-root → 直接用(AI 模式,不问);否则交互必问(默认 $TEAM_ROOT 或 ~/AI/team-wiki);
+    非交互无参用默认。交互模式即使 $TEAM_ROOT 已设也要问(env 仅作默认值)。"""
     if arg:
         return _abspath(arg)
     env = os.environ.get("TEAM_ROOT")
-    if env:
-        return _abspath(env)
+    default = _abspath(env) if env else (repo.TEAM_WIKI_FALLBACK if repo is not None else _abspath("~/AI/team-wiki"))
     if interactive:
         return _ask_path("② 团队仓目录(团队知识源的本地 git clone,只读)",
                          "用于 changes 看更新 / sync-team 镜像进个人库;通常 ~/AI/team-wiki", default)
     return default
 
 
-def ensure_personal(personal, repo):
-    """个人库不存在/未初始化 → wiki-cli init 自动建(幂等,绝不覆盖已有页)。返回是否就绪。"""
+def maybe_init_personal(personal, repo, init_flag, interactive):
+    """写完指针后,按用户意愿决定是否初始化个人库(建空库骨架)。绝不自动 init。
+    init_flag: True(--init 强制建)/ False(--no-init 跳过)/ None(未指定 → 交互问,默认否)。
+    个人库已是有效根则无需 init。返回个人库当前是否为有效根。"""
     is_root = repo._is_root if repo is not None else os.path.isdir
     if is_root(personal):
-        print(f"  ✅ 个人库已就位:{personal}")
+        print(f"  ✅ 个人库已是有效知识库,无需初始化:{personal}")
         return True
-    print(f"  个人库尚未初始化,自动建库(幂等):{personal}")
-    rc = subprocess.call([sys.executable, CLI, "init", personal])
-    ok = rc == 0
-    print(f"  {'✅ 个人库已创建' if ok else '❌ 个人库创建失败,请手动 wiki-cli init'}:{personal}")
-    return ok
+    do_init = init_flag
+    if do_init is None:  # 未用 --init/--no-init 指定
+        if interactive:
+            try:
+                ans = input(f"\n个人库尚未初始化:{personal}\n"
+                            f"  现在初始化知识库结构吗?(建空库骨架,幂等不覆盖已有) [y/N] > ").strip().lower()
+            except EOFError:
+                ans = ""
+            do_init = ans in ("y", "yes")
+        else:
+            do_init = False  # 非交互且未指定 → 不自动建(满足'询问而非自动'的安全默认)
+    if do_init:
+        rc = subprocess.call([sys.executable, CLI, "init", personal])
+        ok = rc == 0
+        print(f"  {'✅ 个人库已初始化' if ok else '❌ 初始化失败,请手动: wiki-cli init'}:{personal}")
+        return ok
+    print(f"  ⏭ 已跳过初始化(指针已写好)。日后初始化: python3 \"{CLI}\" init \"{personal}\"")
+    return False
 
 
 def check_team(team, personal, repo):
@@ -218,7 +235,7 @@ def do_cc(wiki_root, team_root, write):
         print(ptr)
         print("② 把 skill(wiki-ingest/query/lint)与命令软链/复制进 ~/.claude/(跨平台,Windows 无开发者模式时自动改复制)")
         print("③ 重启 Claude Code")
-        print("(加 --write 自动执行 ①②;或直接走插件市场 /plugin marketplace add chuaishoushou/wiki-manage)")
+        print("(加 --write 自动执行 ①②)")
         return
     _append_with_marker(os.path.expanduser("~/.claude/CLAUDE.md"), ptr)
     sk_dir = os.path.expanduser("~/.claude/skills")
@@ -273,15 +290,22 @@ def do_cursor(wiki_root, team_root, write, project):
     print("（库路径已自动填好;这是唯一的手动一步——Cursor 不允许脚本写全局规则）")
 
 
-def self_check(wiki_root):
-    banner("自检 (wiki-cli protocol)")
-    # 跨平台:用 subprocess + env 注入 WIKI_ROOT,不能用 'VAR=val cmd'(那是 POSIX shell 语法,Windows cmd 非法)
-    env = dict(os.environ, WIKI_ROOT=wiki_root)
-    rc = subprocess.call([sys.executable, CLI, "protocol"], env=env)
+def self_check(wiki_root, repo):
+    banner("自检")
+    is_root = repo._is_root if repo is not None else os.path.isdir
+    # 个人库未初始化(用户选了暂不 init)→ 跳过自检、不算失败:指针已写好,日后 init 即可用。
+    # 这是退出码契约的关键:'选不初始化'必须 exit 0,否则 AI 会把安装判为失败。
+    if not is_root(wiki_root):
+        print(f"⏭ 个人库尚未初始化,跳过协议自检(这是正常的,你选择了暂不 init)。")
+        print(f"  规则指针已写好;日后 python3 \"{CLI}\" init \"{wiki_root}\" 即可启用。")
+        return True
+    # 显式传 --root(不用 WIKI_ROOT env):env 空/非法时 protocol 会经 team-default 兜底
+    # 静默连到 ~/AI/team-wiki 并返回 0,造成"自检假通过"。--root 锁定到本次个人库。
+    rc = subprocess.call([sys.executable, CLI, "--root", wiki_root, "protocol"])
     if rc == 0:
-        print("\n✅ 自检通过:能找到 wiki 根、读到协议、工具版本匹配。")
+        print("\n✅ 自检通过:个人库是有效 wiki 根、能读协议、工具版本匹配。")
     else:
-        print("\n❌ 自检未过:检查 WIKI_ROOT 是否指向 wiki 根(含 AGENTS.md/_vocabulary.md)。")
+        print("\n❌ 自检未过:个人库存在但 protocol 失败,检查其结构。")
     return rc == 0
 
 
@@ -292,32 +316,47 @@ def main():
     p.add_argument("--team-root", help="团队仓本地 clone(只读知识源;默认 $TEAM_ROOT 或 ~/AI/team-wiki)")
     p.add_argument("--wiki-root", help="[兼容别名] 等价 --personal-root")
     p.add_argument("--write", action="store_true", help="真正写入文件(默认只打印)")
-    p.add_argument("--no-input", action="store_true", help="跳过交互提问(用默认/已给参数;CI/管道用)")
+    p.add_argument("--no-input", action="store_true", help="跳过交互提问(用默认/已给参数;CI/AI 用)")
     p.add_argument("--cursor-project", help="Cursor 项目根(--platform cursor --write 时需要)")
+    g = p.add_mutually_exclusive_group()
+    g.add_argument("--init", dest="init", action="store_true", default=None,
+                   help="安装后初始化个人库(建空库骨架,幂等)")
+    g.add_argument("--no-init", dest="init", action="store_false",
+                   help="安装后不初始化个人库(默认;只写指针)")
     args = p.parse_args()
 
     repo = _import_repo()
     interactive = _interactive(args.no_input)
-    # 个人库(主)与团队仓(源)两个位置:显式参数 > 环境变量 > 交互询问 > 约定默认
-    personal = resolve_personal(args.personal_root or args.wiki_root, repo, interactive)
-    team = resolve_team(args.team_root, repo, interactive)
+    personal_arg = args.personal_root or args.wiki_root
+    team_arg = args.team_root
+
+    # AI 裸跑兜底:--write 且未显式传【个人库】路径 且 stdin 非 TTY(AI 没读 README 直接跑)→ 拦截,
+    # 不静默落默认路径建库。个人库是主库、缺它风险最高,只要缺就拦(团队仓有约定+提示,可缺)。
+    # 交互(TTY,会询问)与 AI 已传 --personal-root 两条正常路径不受影响。
+    if args.write and not personal_arg and not interactive:
+        sys.stderr.write(
+            "\n❌ 非交互执行(stdin 非终端)且未传库路径,已中止——避免静默装到默认路径。\n"
+            "   若你是 AI 助手:请先在对话里问用户【个人库位置】【团队仓位置】【是否初始化】,\n"
+            "   再用参数重跑(单平台、带路径),例如:\n"
+            "     python3 bin/wiki-init --platform cc \\\n"
+            "       --personal-root \"<个人库>\" --team-root \"<团队仓>\" --write --no-input --no-init\n"
+            "   详见 README 的『给 AI 助手的执行指令』。\n"
+        )
+        sys.exit(2)
+
+    personal = resolve_personal(personal_arg, repo, interactive)
+    team = resolve_team(team_arg, repo, interactive)
 
     print(f"\nwiki-manage: {WIKI_MANAGE}")
     print(f"个人库(主) : {personal}")
     print(f"团队仓(源) : {team}")
     print(f"模式       : {'写入' if args.write else '仅打印(加 --write 落地)'}")
 
-    # 库就位:--write 时个人库缺则自动建(幂等);团队仓缺则提示 clone(不阻断)。
-    # 顺序在写指针之前——保证指针指向的个人库一定是有效库,失败也不留"指向空库"的脏指针。
-    banner("知识库就位")
-    if args.write:
-        ensure_personal(personal, repo)
-    else:
-        is_root = repo._is_root if repo is not None else os.path.isdir
-        print(f"  个人库:{'已就位' if is_root(personal) else '尚未初始化(加 --write 会自动建)'} {personal}")
+    # 团队仓:只读知识源,不存在只提示 clone、不阻断(个人库可独立工作)
+    banner("团队仓检查")
     check_team(team, personal, repo)
 
-    # platform=all 时自动探测本机装了哪些工具,只配在装的(显式指定单平台则无条件执行)
+    # 写三平台规则指针。platform=all 时自动探测只配装了的;显式单平台则无条件执行。
     auto = args.platform == "all"
     if args.platform in ("cc", "all"):
         if not auto or has_claude():
@@ -335,7 +374,13 @@ def main():
         else:
             print("— Cursor:未检测到,跳过")
 
-    ok = self_check(personal)
+    # 写完指针后,才决定是否初始化个人库(绝不自动:--init/--no-init 或交互询问;默认否)。
+    # 仅 --write 有意义;dry-run 预览不建库。
+    if args.write:
+        banner("个人库初始化(可选)")
+        maybe_init_personal(personal, repo, args.init, interactive)
+
+    ok = self_check(personal, repo)
     sys.exit(0 if ok else 1)
 
 

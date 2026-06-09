@@ -1,8 +1,9 @@
 # 安装(团队成员上手 · 三平台 · 唯一 git 入口)
 
-> **一句话**:clone 工具仓 `wiki-manage`,跑 `./install.sh` —— 它会交互配好**两个库**:个人库(日常读写主线,默认 `~/AI/wiki`,不存在自动建)+ 团队仓(团队知识源的只读 clone,默认 `~/AI/team-wiki`)。
+> **一句话**:clone 工具仓 `wiki-manage`,跑 `./install.sh` —— 它交互问你两个库的位置(个人库默认 `~/AI/wiki`、团队仓默认 `~/AI/team-wiki`),写好三平台规则指针,最后问你是否现在初始化个人库(默认否,**不自动建**)。
 > **约定路径**:个人库 `~/AI/wiki`、团队仓 `~/AI/team-wiki`。放在约定位置时,即使没设环境变量、从 GUI/Desktop 启动也能自动兜底连上。
-> ⚠️ **本仓不是原生插件**,刻意不提供 `marketplace.json` / `plugin.json`。别用 `/plugin marketplace add`、`codex plugin install`、Cursor 扩展市场去装 —— 那些会报校验错或找不到。**唯一入口就是 `git clone` + `./install.sh`。**
+> ⚠️ **本仓不是原生插件**,刻意不提供 `marketplace.json` / `plugin.json`。别用 `/plugin marketplace add`、`codex plugin install`、Cursor 扩展市场 —— 那些会报校验错或找不到。**唯一入口就是 `git clone` + `./install.sh`。**
+> 🤖 **AI 助手代装**:不要裸跑 `./install.sh`(你执行命令时 stdin 非终端、问不到用户,会被退出码 2 拦截)。见 [README 的『给 AI 助手的执行指令』](../README.md)——先在对话里问用户三问,再用参数直接调 `bin/wiki-init`。
 
 ---
 
@@ -18,15 +19,14 @@ git --version         # 需要 git
 
 ---
 
-## 第 1 步:clone 工具仓 + clone 团队仓(个人库无需手动建)
+## 第 1 步:clone 工具仓 + clone 团队仓
 
 ```bash
 git clone https://github.com/chuaishoushou/wiki-manage.git ~/AI/wiki-manage   # 工具(必需:wiki-init 与 wiki-cli 都在此仓)
 git clone https://github.com/chuaishoushou/team-wiki.git   ~/AI/team-wiki     # 团队知识(只读源;可选先 clone——装时不存在会提示你 clone)
-# 个人库不用手动建:第 2 步的 ./install.sh 会在它不存在时自动 wiki-cli init 建好(默认 ~/AI/wiki)。
 ```
 
-> ✅ `./install.sh` 不硬性要求"先 clone 团队仓":个人库会自动建,团队仓缺失只提示不阻断。先 clone 团队仓更顺(装完即可 sync),但不是硬前置。
+> ✅ `./install.sh` 不硬性要求"先 clone 团队仓":团队仓缺失只提示不阻断。个人库也不会被自动建——装到最后会**问你**是否初始化(默认否)。
 
 ---
 
@@ -38,45 +38,48 @@ git clone https://github.com/chuaishoushou/team-wiki.git   ~/AI/team-wiki     # 
 # macOS / Linux
 ./install.sh
 # Windows(cmd / PowerShell)
-install.cmd
+.\install.cmd
 ```
 
-它会**交互询问个人库 + 团队仓两个位置**(回车用默认),然后自动探测本机的 Claude Code / Codex / Cursor 并各自配好:
+它会**逐项交互询问**(回车用默认):① 个人库位置 ② 团队仓位置 → 写好三平台规则指针 → 最后问 ③ 是否现在初始化个人库(默认否)。然后自动探测本机的 Claude Code / Codex / Cursor 各自配好:
 
 - **Claude Code / Codex** → 写规则指针(`~/.claude/CLAUDE.md` / `~/.codex/AGENTS.md`)+ Claude 软链 skills/命令,重启即生效。
 - **Cursor** → 打印一段 User Rules 文本,复制粘进 **设置 → Rules → User Rules**(唯一手动一步)。
 
-**不想交互 / 只装单个平台 / CI** —— 直接调 `bin/wiki-init`,显式给两个库:
+**只装单个平台 / 非交互 / CI / AI** —— 直接调 `bin/wiki-init`,显式给两个库 + `--no-input` + `--init`/`--no-init`(路径一律加引号):
 
 ```bash
-# 只配 Claude Code
+# 只配 Claude Code(--no-init:暂不初始化个人库;要初始化改成 --init)
 python3 ~/AI/wiki-manage/bin/wiki-init --platform cc \
-    --personal-root ~/AI/wiki --team-root ~/AI/team-wiki --write
+    --personal-root "$HOME/AI/wiki" --team-root "$HOME/AI/team-wiki" --write --no-input --no-init
 
 # 只配 Codex
 python3 ~/AI/wiki-manage/bin/wiki-init --platform codex \
-    --personal-root ~/AI/wiki --team-root ~/AI/team-wiki --write
+    --personal-root "$HOME/AI/wiki" --team-root "$HOME/AI/team-wiki" --write --no-input --no-init
 
-# 只配 Cursor(打印 User Rules,粘一次;不落文件)
+# 只配 Cursor(不要 --write;脚本把 User Rules 打到 stdout,粘一次)
 python3 ~/AI/wiki-manage/bin/wiki-init --platform cursor \
-    --personal-root ~/AI/wiki --team-root ~/AI/team-wiki
+    --personal-root "$HOME/AI/wiki" --team-root "$HOME/AI/team-wiki" --no-input --no-init
+
 # Cursor 项目级规则(写该项目 .cursor/rules/wiki.mdc,每项目一次,用 @wiki 触发):
 python3 ~/AI/wiki-manage/bin/wiki-init --platform cursor \
-    --personal-root ~/AI/wiki --team-root ~/AI/team-wiki --cursor-project <项目根> --write
+    --personal-root "$HOME/AI/wiki" --team-root "$HOME/AI/team-wiki" --cursor-project "<项目根>" --write
 ```
 
-> 去掉 `--write` 只打印不落地,先看再执行。`--no-input` 跳过交互(用默认/已给参数)。`--wiki-root` 是 `--personal-root` 的兼容别名。
+> 去掉 `--write` 只打印不落地,先看再执行。`--init` 初始化个人库 / `--no-init` 不初始化(默认)。`--wiki-root` 是 `--personal-root` 的兼容别名。Windows 把 `python3` 换 `py -3`、`$HOME/AI/...` 换 `"%USERPROFILE%\AI\..."`。
 
 ---
 
-## 第 3 步:黄金验收(命令行,不依赖先把 AI 跑起来)
+## 第 3 步:黄金验收(命令行)
+
+> 仅当你在第 2 步选了"初始化个人库"(或个人库本就是有效库)时 protocol 才连得上;选了"暂不初始化"则先 `wiki-cli init ~/AI/wiki` 再验收。
 
 ```bash
-WIKI_ROOT=~/AI/wiki python3 ~/AI/wiki-manage/plugins/flux-wiki/tools/bin/wiki-cli protocol
+python3 ~/AI/wiki-manage/plugins/flux-wiki/tools/bin/wiki-cli --root ~/AI/wiki protocol
 ```
-看到 **「连接来源 … ✅」** + **「协议版本: … OK ✅」** = 工具与库都就绪。
+看到 **「协议版本: … OK ✅」** = 个人库与工具就绪。查团队知识直接 `--root ~/AI/team-wiki`。
 
-再加分项(对话式探针):新开 AI 会话问「**团队 wiki 有哪些 domain?**」答得出 = 规则指针已加载。让 AI 跑 `wiki-cli protocol`,确认 `warnings` 为空。
+再加分项(对话式探针):新开 AI 会话问「**团队 wiki 有哪些 domain?**」答得出 = 规则指针已加载。
 
 ---
 
@@ -84,7 +87,7 @@ WIKI_ROOT=~/AI/wiki python3 ~/AI/wiki-manage/plugins/flux-wiki/tools/bin/wiki-cl
 
 ```bash
 git -C ~/AI/wiki-manage pull     # 更新工具(软链的 skill / wiki-cli 即时生效)
-git -C ~/AI/team-wiki  pull      # 更新团队知识(= /wiki-sync)
+git -C ~/AI/team-wiki  pull      # 更新团队知识
 ~/AI/wiki-manage/install.sh      # 工具更新后重跑一次(Cursor 重新粘 User Rules;其余幂等)
 ```
 想钉到稳定版:`git -C ~/AI/wiki-manage checkout <tag>`;回滚:`git checkout <commit>`。
@@ -115,9 +118,9 @@ rm ~/.claude/commands/wiki-*.md   # wiki-sync.md / wiki-sync-team.md / wiki-help
 
 ## Windows 支持
 
-- **一键安装走 `install.cmd`**(不要用 `./install.sh` —— 那是 bash,Windows 原生 cmd/PowerShell 跑不了)。`install.cmd` 自动找 `py`/`python`、交互问两个库、自动探测三平台,等价于 mac/Linux 的 `./install.sh`。
-- **Python**:装 Python 3.8+(python.org 勾选 *Add to PATH*,或 Microsoft Store 版)。命令行用 `py` 或 `python` 均可;`install.cmd` 与 `wiki-init` 内部都用当前解释器绝对路径,不依赖 `python3` 这个名字。
+- **一键安装走 `.\install.cmd`**(不要用 `./install.sh` —— 那是 bash,Windows 原生 cmd/PowerShell 跑不了)。`install.cmd` 自动找 `py -3`/`python`、交互问两个库、自动探测三平台,等价于 mac/Linux 的 `./install.sh`。
+- **Python**:装 Python 3.8+(python.org 勾选 *Add to PATH*,或 Microsoft Store 版)。命令行用 `py -3` 或 `python` 均可;`install.cmd` 与 `wiki-init` 内部都用当前解释器,不依赖 `python3` 这个名字。
 - **符号链接**:装 Claude skill/命令时优先软链;Windows 非管理员 / 未开**开发者模式**会自动回退为**复制**(代价:`git pull` 后需重跑 `install.cmd` 才更新)。开了开发者模式则软链即时生效。
-- **库路径**:`install.cmd D:\AI\wiki D:\AI\team-wiki` 按顺序传两个库(个人库在前);或 `set PERSONAL_ROOT=... & set TEAM_ROOT=... & install.cmd`。
+- **库路径(非交互 / AI)**:用参数 `--personal-root "%USERPROFILE%\AI\wiki" --team-root "%USERPROFILE%\AI\team-wiki"`(路径加引号);人工跑 `.\install.cmd` 走交互即可,别预先 `set PERSONAL_ROOT/TEAM_ROOT`(会被当默认值)。
 - **Cursor**:与 mac 一致 —— `install.cmd` 打印 User Rules 文本,粘进 设置→Rules→User Rules 一次。
 - 路径分隔符、`~`、`%LOCALAPPDATA%` 等已在工具内用 `os.path` / `expanduser` / `expandvars` 处理,Windows 正反斜杠混用均可。

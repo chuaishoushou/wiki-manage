@@ -208,6 +208,13 @@ def root_resolution_checks():
             r, s = repo.find_wiki_root_verbose()
             check("解析链:env 非法→env-invalid 硬失败(不静默回退)",
                   s == "env-invalid" and r is None, f"got source={s}")
+            # 显式 --root 无效 → start-invalid 硬失败,即使 team-default 存在也不兜底
+            # (回归:旧行为会落 team-default 假通过 exit 0,见 wiki-cli --root /不存在)
+            repo.TEAM_WIKI_FALLBACK = team
+            os.environ.pop("WIKI_ROOT", None)
+            r, s = repo.find_wiki_root_verbose(os.path.join(neutral, "no-such-root"))
+            check("解析链:--root 无效→start-invalid(team-default 存在也不假通过)",
+                  s == "start-invalid" and r is None, f"got source={s} root={r}")
         finally:
             repo.TEAM_WIKI_FALLBACK, repo.PERSONAL_WIKI_FALLBACK = orig_team, orig_personal
             if orig_env is None:

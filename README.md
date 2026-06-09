@@ -2,37 +2,80 @@
 
 让一个团队(~15 人)共享**同一套规范化的 AI 知识库**:统一层级 / 分类 / 入库规则,跨 Claude Code / Codex / Cursor。
 
-## 安装(唯一方式 · git)
+## 安装
 
-> ⚠️ **这不是能在插件市场安装的"原生插件"。别用** `/plugin marketplace add`、`codex plugin install`、Cursor 扩展市场 —— 那些路都走不通(会报 plugin.json 校验错或根本找不到)。**唯一安装方式就是下面这三行 git 命令。** 让 AI 替你装,也把这三行原样发给它。
+> ⚠️ **这不是能在插件市场安装的"原生插件"。** 别用 `/plugin marketplace add`、`codex plugin install`、Cursor 扩展市场 —— 那些路都走不通(本仓刻意不含 `marketplace.json` / `plugin.json`)。**唯一安装方式是 `git clone` + 安装脚本。** 三平台(Claude Code / Codex / Cursor)同一套,只是装完收尾不同。
 
-**macOS / Linux**
+### A. 给 AI 助手的执行指令(把本节整段发给任意平台的 AI)
+
+> 你(AI)被用户要求安装这个工具。按步骤做,**不要跳步**。
+
+**第 0 步 · 你不是终端用户。** 你执行 shell 时 stdin 不是交互终端,本仓脚本的交互提问(`input()`)对你会直接 EOF —— 你问不到用户。所以**绝不要裸跑 `./install.sh` / `install.cmd` 等它问你**(那样会被脚本以退出码 2 拦截)。正确做法:先在对话里问用户,再用命令行参数把答案传进去。
+
+**第 1 步 · 先在对话里问用户这三个问题**(每次都必须问,无论磁盘上是否已有 `~/AI/wiki`、`~/.claude` —— 检测只决定"配哪个平台",不决定"是否提问"):
+1. 个人库放哪个目录?(你日常读写/入库的主库;默认 `~/AI/wiki`)
+2. 团队仓在哪个目录?(团队知识源的本地 git clone,只读;默认 `~/AI/team-wiki`)
+3. 现在就初始化个人库吗?(选"是"→下面用 `--init`;选"否"→用 `--no-init`;默认否)
+
+**第 2 步 · 确认你当前所在平台**(你自己知道:Claude Code / Codex / Cursor),下面用 `--platform` 显式指定,别依赖自动探测(新机/容器可能探测不到而被跳过)。
+
+**第 3 步 · clone 工具仓到固定目录**(已存在就 `git -C ~/AI/wiki-manage pull`,别重复 clone):
+
+macOS / Linux:
 ```bash
-git clone https://github.com/chuaishoushou/wiki-manage
-cd wiki-manage
+git clone https://github.com/chuaishoushou/wiki-manage.git ~/AI/wiki-manage && cd ~/AI/wiki-manage
+```
+Windows(cmd / PowerShell,逐行,**别用 `&&`**):
+```bat
+git clone https://github.com/chuaishoushou/wiki-manage.git %USERPROFILE%\AI\wiki-manage
+cd %USERPROFILE%\AI\wiki-manage
+```
+
+**第 4 步 · 按平台运行**(填入第 1 步回答;路径一律加引号;选了初始化把 `--no-init` 换成 `--init`)。**直接调 `bin/wiki-init`,不走 install.sh** —— 这样 `--platform` / `--init` 才能精确传达。
+
+Claude Code(macOS/Linux):
+```bash
+python3 bin/wiki-init --platform cc --personal-root "$HOME/AI/wiki" --team-root "$HOME/AI/team-wiki" --write --no-input --no-init
+```
+Codex(macOS/Linux):
+```bash
+python3 bin/wiki-init --platform codex --personal-root "$HOME/AI/wiki" --team-root "$HOME/AI/team-wiki" --write --no-input --no-init
+```
+Cursor(macOS/Linux,**不要 `--write`** —— Cursor 没有可写的全局规则文件,脚本会把 User Rules 文本打到 stdout):
+```bash
+python3 bin/wiki-init --platform cursor --personal-root "$HOME/AI/wiki" --team-root "$HOME/AI/team-wiki" --no-input --no-init
+```
+**Windows**:把 `python3` 换成 `py -3`(没有 `py` 用 `python`),`$HOME/AI/...` 换成 `"%USERPROFILE%\AI\..."`;**绝不要用 `bash ./install.sh` 或 `./install.sh`**(那是 bash,cmd/PowerShell 跑不了)。
+
+**第 5 步 · 收尾(按平台):**
+- **Claude Code**:已写 `~/.claude/CLAUDE.md` 指针 + 软链 skills/命令。让用户**重启 Claude Code**。
+- **Codex**:已写 `~/.codex/AGENTS.md` 指针。让用户**重启 Codex**。(Codex 不支持 slash 命令,只装指针,别承诺 `/wiki-*`。)
+- **Cursor**:从输出里两条 `────` 分隔线之间取出整段文本,**原样逐字**转述给用户,让他粘进 **Cursor 设置 → Rules → User Rules**(一次,管所有项目)—— 这是 Cursor 唯一的手动步骤。
+
+**第 6 步 · 报告。** 退出码 0 即成功(用户选"暂不初始化"时退出码也是 0);若非 0,把完整输出贴给用户,别擅自重试。
+
+> 诚实声明:本工具目前仅在 Claude Code 端做过端到端真机验证;Codex / Cursor 的 AI 自安装属设计成立、真机待验。在那两个平台若行为异常,把输出反馈用户。
+
+### B. 人工终端安装(人在终端自己敲,交互式)
+
+> 这条路才用脚本的交互问答:逐项问两个库的位置(回车用默认),写完指针后再问是否初始化个人库(默认否)。**别预先 `export`/`set` `PERSONAL_ROOT`/`TEAM_ROOT`/`WIKI_ROOT`**,否则会被当默认值。
+
+macOS / Linux:
+```bash
+git clone https://github.com/chuaishoushou/wiki-manage.git ~/AI/wiki-manage
+cd ~/AI/wiki-manage
 ./install.sh
 ```
-
-**Windows**(cmd 或 PowerShell)
+Windows(cmd / PowerShell,逐行;**禁止** `bash ./install.sh`,一律 `.\install.cmd`):
 ```bat
-git clone https://github.com/chuaishoushou/wiki-manage
-cd wiki-manage
-install.cmd
+git clone https://github.com/chuaishoushou/wiki-manage.git %USERPROFILE%\AI\wiki-manage
+cd %USERPROFILE%\AI\wiki-manage
+.\install.cmd
 ```
+收尾同上(A 第 5 步):Claude Code / Codex 重启即生效;Cursor 把打印的 User Rules 粘进 设置 → Rules → User Rules。
 
-`install.sh` 会**交互问你两个目录**(直接回车用默认值):
-
-1. **个人库** — 你日常读写 / 入库的知识库。不存在会**自动建好**。默认 `~/AI/wiki`。
-2. **团队仓** — 团队知识源(只读)。默认 `~/AI/team-wiki`;还没 clone 也没关系,会**提示你 clone**,不阻断安装。
-
-然后它自动探测本机装了哪些工具,各自配好规则指针(告诉该工具里的 AI:两个库在哪、怎么查/入库/同步),**重启客户端即生效**:
-
-- **Claude Code / Codex** → 全自动(写 `~/.claude/CLAUDE.md` / `~/.codex/AGENTS.md` 规则指针;Claude 另把 skills/命令软链进 `~/.claude/`)。
-- **Cursor** → 脚本打印一段「User Rules」纯文本(已填好库路径);复制 → Cursor **设置 → Rules → User Rules** → 粘一次,管所有项目。Cursor 没有可写的全局规则文件,**这是唯一的手动一步**。
-
-> **不想交互?** 按顺序给两个路径(个人库在前、团队仓在后):`./install.sh ~/AI/wiki ~/AI/team-wiki`;或用环境变量 `PERSONAL_ROOT=… TEAM_ROOT=… ./install.sh`。
-> **更新**:`git pull` 后重跑 `./install.sh`(Cursor 重新粘一次 User Rules)。
-> **更新 / 卸载 / 排障 / 只装单个平台**:见 [docs/INSTALL.md](docs/INSTALL.md)。
+> 团队仓还没 clone 也不阻断,脚本会提示你 clone 命令(`git clone https://github.com/chuaishoushou/team-wiki.git ~/AI/team-wiki`)。
+> 更新 / 卸载 / 排障 / 只装单平台:见 [docs/INSTALL.md](docs/INSTALL.md)。
 
 ## 两个 git 仓,别混
 
