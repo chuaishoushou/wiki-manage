@@ -5,7 +5,7 @@ alwaysApply: false
 
 # 团队 LLM Wiki(Cursor 适配)
 
-> 占位符由 bin/wiki-init 替换。本规则只作 @-mention 便利;知识库是本地 markdown,**直接读 + 调 wiki-cli,不经 MCP**。
+> 占位符由 bin/wiki-init 替换。本规则只作 @-mention 便利;知识库是本地 markdown,**直接读 + 调 wiki-cli**。
 
 本项目可访问 LLM Wiki(`{{WIKI_ROOT}}`)。涉及 wiki 时:
 1. 协议与分类闭集:读 `{{WIKI_ROOT}}/AGENTS.md` + `{{WIKI_ROOT}}/_vocabulary.md`;或终端 `wiki-cli --root "{{WIKI_ROOT}}" protocol`。

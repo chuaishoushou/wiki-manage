@@ -3,7 +3,7 @@
 
 为 Claude Code / Codex / Cursor 写"规则指针",告诉 AI:知识库在哪、规则真源是哪两个文件、
 用 wiki-cli(纯 CLI)做 protocol/检索/校验/同步、查知识直接 Read/Grep 库文件。
-**不配 MCP** —— 知识库是本地文件,AI 直接读 + 调 CLI 即可,免去常驻进程与跨平台 MCP 配置。
+知识库是本地文件,AI 直接读 + 调 CLI 即可,免去常驻进程与跨平台配置。
 CC 额外把 skill + slash 命令链接进 ~/.claude/。默认只打印(安全);--write 才落地。
 
 用法:

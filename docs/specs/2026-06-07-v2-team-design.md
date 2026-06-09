@@ -10,7 +10,7 @@
 
 ## 0. 为什么推倒 v1
 
-v1 明确"砍团队仓、只服务个人、不要 enforcement、做本机 Web 服务",而本轮目标是**给约 15 人团队共享同一套规范化知识库 + 统一入库分类**。两者根本冲突,且 v1 的 README(讲双 wiki/MCP)与 spec(讲砍团队仓/plugin manifest)自相矛盾。故重新设计。
+v1 明确"砍团队仓、只服务个人、不要 enforcement、做本机 Web 服务",而本轮目标是**给约 15 人团队共享同一套规范化知识库 + 统一入库分类**。两者根本冲突,且 v1 的 README(讲双 wiki + 本机 Web 服务)与 spec(讲砍团队仓/plugin manifest)自相矛盾。故重新设计。
 
 ### 已锁定的 4 条约束(用户拍板,本设计的第一性约束)
 
@@ -169,7 +169,7 @@ wiki-cli = **只读检索 + 计算 + 建议**;写入永远走 file 操作 + skil
 | | Claude Code(最佳) | Codex(第二) | Cursor(降级) |
 |---|---|---|---|
 | 规范层 | 用户级 CLAUDE.md 指针 + clone 读 AGENTS.md | `~/.codex/AGENTS.md` 用户级指针 | `.cursor/rules/wiki.mdc`(Apply Manually,@-mention) |
-| 工作流 skill | plugin 捆绑(命名空间隔离) | SKILL.md 复制到 `.agents/skills`(实测定论)+ `openai.yaml` sidecar | 无原生 skill,靠规则指针 + @-mention |
+| 工作流 skill | plugin 捆绑(命名空间隔离) | SKILL.md 逻辑并入 `~/.codex/AGENTS.md` 规则指针(skill 行为字段不可移植) | 无原生 skill,靠规则指针 + @-mention |
 | 主动能力 | plugin 一并装好 wiki-cli + 规则指针 | `wiki-init` 写 `~/.codex/AGENTS.md` 指针 + 设库路径 | `wiki-init` 写 `.cursor/rules/wiki.mdc` 指针 + 设库路径 |
 | 分发/更新 | marketplace 一键 + tag 发版 | git pull 工具仓(plugin 第二通道,需独立 manifest) | git pull,无版本化 UI |
 | 一致性保证 | skill+wiki-cli+plugin | AGENTS.md+wiki-cli(skill 行为字段不可移植) | **规则指针 + wiki-cli**(三家共用同一 CLI 与库文件) |

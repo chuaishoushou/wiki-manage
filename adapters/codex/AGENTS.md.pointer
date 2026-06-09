@@ -2,7 +2,7 @@
 
 > 仅指针,不复制协议正文(防漂移)。占位符由 bin/wiki-init 替换。
 
-本机维护一个 LLM Wiki(知识库),根目录 `{{WIKI_ROOT}}`。它是本地 markdown,**直接读 + 用 wiki-cli**,不经 MCP。
+本机维护一个 LLM Wiki(知识库),根目录 `{{WIKI_ROOT}}`。它是本地 markdown,**直接读 + 用 wiki-cli**。
 
 任务涉及该 wiki 的查询/入库/同步时:
 1. 协议与分类闭集:读 `{{WIKI_ROOT}}/AGENTS.md` + `{{WIKI_ROOT}}/_vocabulary.md`;或 `wiki-cli --root "{{WIKI_ROOT}}" protocol`。
