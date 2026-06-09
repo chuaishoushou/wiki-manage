@@ -34,7 +34,7 @@ echo 'export WIKI_ROOT="$HOME/AI/team-wiki"' >> ~/.zshrc && export WIKI_ROOT="$H
 
 ## 第 2 步:按平台安装
 
-> **最快:一条命令搞定全部。** 在 `wiki-manage` 目录里跑 —— macOS/Linux: **`./install.sh`**;Windows: **`install.cmd`**。自动探测本机的 Claude / Codex / Cursor 并配好(Cursor 会打印 User Rules 块供你粘进 设置→Rules)。下面是各平台的细节/手动版,排障、只装单个工具、或想走插件市场时看。
+> **最快:一条命令搞定全部。** 在 `wiki-manage` 目录里跑 —— macOS/Linux: **`./install.sh`**;Windows: **`.\install.cmd`**(cmd 里 `install.cmd` 亦可)。自动探测本机的 Claude / Codex / Cursor 并配好(Cursor 会打印 User Rules 块供你粘进 设置→Rules)。下面是各平台的细节/手动版,排障、只装单个工具、或想走插件市场时看。
 
 ### Claude Code —— 主推 wiki-init(零中断),插件市场为备选
 

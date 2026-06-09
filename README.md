@@ -28,8 +28,10 @@
 git clone https://github.com/chuaishoushou/wiki-manage && cd wiki-manage && ./install.sh
 ```
 ```bat
-REM Windows(cmd 或 PowerShell)
-git clone https://github.com/chuaishoushou/wiki-manage && cd wiki-manage && install.cmd
+REM Windows(cmd 或 PowerShell 都适用,分行避免 PS5.1 不支持 &&)
+git clone https://github.com/chuaishoushou/wiki-manage
+cd wiki-manage
+.\install.cmd
 ```
 
 - **Claude / Codex** → 自动配好(写 `~/.claude/CLAUDE.md` / `~/.codex/AGENTS.md` 规则指针 + Claude 软链 skills/命令),重启客户端即生效。
