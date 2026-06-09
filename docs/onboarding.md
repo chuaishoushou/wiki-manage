@@ -1,6 +1,6 @@
 # 团队成员 onboarding
 
-> 按角色分轨。**大多数人是只读成员,先看下面第一节就够了。** 一致性主要靠 MCP 工具。
+> 按角色分轨。**大多数人是只读成员,先看下面第一节就够了。** 一致性靠规则指针 + wiki-cli(AI 直接 Read/Grep 库文件 + CLI 检索/校验)。
 > 完整安装步骤见 [INSTALL.md](INSTALL.md);本页是分角色的最短路径。
 
 ---
@@ -35,7 +35,7 @@ python3 ~/AI/wiki-manage/bin/wiki-init --platform cc --wiki-root ~/AI/team-wiki 
 会话开头若看到 `[wiki] 未连接…`,就是 `~/AI/team-wiki` 不存在或 `WIKI_ROOT` 没设对。
 
 ### A-2. Codex / Cursor
-见下面 C 节(这两家没有插件机制,要用 wiki-init 写 MCP 配置)。
+见下面 C 节(这两家没有插件机制,要用 wiki-init 写规则指针 + 设库路径)。
 
 ---
 
@@ -55,9 +55,9 @@ export WIKI_ROOT="$HOME/AI/team-wiki"
 
 ---
 
-## C. Codex / Cursor 安装(用 wiki-init 写 MCP 配置)
+## C. Codex / Cursor 安装(用 wiki-init 写规则指针 + 设库路径)
 
-> **预期管理**:这两家没有 Claude Code 那种插件机制。"装" = 写一个 MCP server 配置(+ 可选指针)。skill 自动触发在这两家不保证,**一致性靠 MCP 工具**。先按 A-1 顶部 clone 好两个仓、设好 `WIKI_ROOT`。
+> **预期管理**:这两家没有 Claude Code 那种插件机制。"装" = 写一份规则指针(告诉 AI 团队库在哪、查知识直接 Read/Grep + 用 wiki-cli)+ 设好库路径。skill 自动触发在这两家不保证,**一致性靠规则指针 + wiki-cli**。先按 A-1 顶部 clone 好两个仓、设好 `WIKI_ROOT`。
 
 ```bash
 # 先 dry-run 看将写什么(不加 --write 只打印)
@@ -66,25 +66,24 @@ python3 ~/AI/wiki-manage/bin/wiki-init --platform codex --wiki-root ~/AI/team-wi
 python3 ~/AI/wiki-manage/bin/wiki-init --platform codex --wiki-root ~/AI/team-wiki --write
 ```
 
-- **Codex**:写 `~/.codex/config.toml` 的 `[mcp_servers.wiki]`(stdio,指向 wiki_mcp.py + env WIKI_ROOT)+ `~/.codex/AGENTS.md` 用户级指针(跨工作区生效),然后**重启 Codex**。
-- **Cursor**:`wiki-init --platform cursor --write --cursor-project <项目根> --wiki-root ~/AI/team-wiki` 写 `.cursor/mcp.json` + `.cursor/rules/wiki.mdc`。**每个新项目都要重跑一次**;`.cursor/rules` 不保证自动触发,靠 `@wiki` 提及或直接让 AI 调 MCP 工具。
-- 先单独验证 server 能跑(隔离问题):
+- **Codex**:写 `~/.codex/AGENTS.md` 用户级规则指针(跨工作区生效:库位置 + 用 Read/Grep 查知识、用 wiki-cli 做协议/检索/校验),然后**重启 Codex**。
+- **Cursor**:`wiki-init --platform cursor --write --cursor-project <项目根> --wiki-root ~/AI/team-wiki` 写 `.cursor/rules/wiki.mdc` 规则指针。**每个新项目都要重跑一次**;`.cursor/rules` 不保证自动触发,靠 `@wiki` 提及或直接让 AI Read/Grep 库文件并调 wiki-cli。
+- 先单独验证库与工具就绪(隔离问题):
   ```bash
-  echo '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{}}}' \
-  | WIKI_ROOT=~/AI/team-wiki python3 ~/AI/wiki-manage/plugins/wiki-governance/tools/server/wiki_mcp.py
+  WIKI_ROOT=~/AI/team-wiki python3 ~/AI/wiki-manage/plugins/wiki-governance/tools/bin/wiki-cli protocol
   ```
-  打印含 `serverInfo` 的 JSON = server 没问题,之后出问题就是平台配置。
+  打印「连接来源 … ✅」+「协议版本 … OK ✅」= 库与 CLI 没问题,之后出问题就是平台配置。
 
-**验收**:让 AI「调用 wiki_get_protocol」——返回里 `root` 是你的库、`root_source` 为 `env`/`team-default`、`warnings` 为空 = 成了。
+**验收**:让 AI 跑 `wiki-cli protocol`——输出里 `root` 是你的库、`root_source` 为 `env`/`team-default`、`warnings` 为空 = 成了。
 
 ---
 
 ## 通用验收清单(任何平台)
 
 - [ ] `WIKI_ROOT=~/AI/team-wiki wiki-cli protocol` 显示「连接来源: WIKI_ROOT 环境变量 ✅」(或「约定团队路径 ✅」)+「协议版本: … OK ✅」
-- [ ] AI 能调 `wiki_get_protocol` 且 `warnings` 为空、`root_source` 为 `env`/`team-default`
-- [ ] AI 能 `wiki_search` 检索到一条已知内容
-- [ ] 探针:问 AI「团队 wiki 有哪些 domain?」答得出 = 协议已加载
+- [ ] AI 能跑 `wiki-cli protocol` 且 `warnings` 为空、`root_source` 为 `env`/`team-default`
+- [ ] AI 能 `wiki-cli search`(或直接 Grep 库 .md)检索到一条已知内容
+- [ ] 探针:问 AI「团队 wiki 有哪些 domain?」答得出 = 规则指针已加载
 
 ## 常见卡点
 | 现象 | 原因 / 解法 |
@@ -92,7 +91,7 @@ python3 ~/AI/wiki-manage/bin/wiki-init --platform codex --wiki-root ~/AI/team-wi
 | `[wiki] 未连接团队 wiki` | `~/AI/team-wiki` 不存在,或 `WIKI_ROOT` 指向的不是 wiki 根 |
 | protocol 显示 `root_source=personal-fallback` | 没设 `WIKI_ROOT` 且约定路径缺失 → 连到了个人库;clone team-wiki 到 `~/AI/team-wiki` 或 `export WIKI_ROOT` |
 | GUI/Desktop 启动连不上,终端能连 | GUI 不继承 shell 的 `export`;把库放在约定路径 `~/AI/team-wiki` 即可兜底 |
-| Codex 看不到 wiki 工具 | config.toml 的 `args` 路径是否存在;先跑上面的 server 单测看 serverInfo |
+| Codex 查不到团队知识 | `~/.codex/AGENTS.md` 规则指针是否写入、`~/AI/team-wiki` 是否存在;先跑上面的 `wiki-cli protocol` 看连接来源 |
 | Windows `python3` 找不到 | 装 Microsoft Store 版 Python(带 python3 别名),或给 `python` 建 `python3` 别名 |
 
 ## 我想贡献新知识(只读成员)

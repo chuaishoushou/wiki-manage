@@ -29,7 +29,7 @@
 若你想在**一个库**里同时查个人笔记 + 团队知识(而不是配两个 `WIKI_ROOT`),用
 `wiki-cli sync-team --team <团队仓clone>` 把团队仓**原样镜像**到个人库的 `wiki/team/` 只读区:
 - **原样拷贝,不重分类、不再 ingest** —— 因此**不触犯**上面的反模式(反模式反对的是"重新加工",镜像不加工)。
-- 团队页落在个人库 `team/` 区:**可被 search / MCP 检索**(查个人库即覆盖团队知识),但**不参与个人库 lint**(团队页按团队仓的规则,不必符合你个人库的受控词表)。
+- 团队页落在个人库 `team/` 区:**可被 wiki-cli search 检索 / 直接 Read**(查个人库即覆盖团队知识),但**不参与个人库 lint**(团队页按团队仓的规则,不必符合你个人库的受控词表)。
 - **只读镜像**:要改团队知识仍去团队仓改、再 `sync-team`;别手改 `team/` 区(下次同步会覆盖)。
 - 增量幂等:再次同步只动变化的页(新增/改/删对齐),`team/.sync-manifest.json` 记来源 commit。
 
@@ -49,4 +49,4 @@ wiki-cli --root ~/AI/team-wiki  search "..."  # 查团队
 wiki-cli --root ~/my-wiki    new concept x --domain 笔记   # 往个人库轻量加页
 wiki-cli --root ~/my-wiki    sync-team --team ~/AI/team-wiki  # 把团队知识原样镜像进个人库 team/(可检索、只读)
 ```
-MCP(模型上下文协议)侧配两条:`wiki-team`(WIKI_ROOT 指团队 clone,只读消费)、`wiki-personal`(WIKI_ROOT 指个人库,可写)。
+**查不同库**:用 `wiki-cli --root <库根>` 指向不同目录(`--root <团队clone>` 只读消费、`--root <个人库>` 可写),或用 `sync-team` 把团队知识镜像进个人库后只查一个库。AI 也可直接 Read/Grep 对应库的 .md 文件。

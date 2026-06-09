@@ -1,10 +1,9 @@
 {
   "name": "wiki-governance",
-  "description": "按统一规则维护团队 LLM Wiki:ingest/query/lint skill + slash command + 只读检索 MCP。规则真源在团队仓 AGENTS.md/_vocabulary.md。",
-  "version": "0.1.0",
+  "description": "按统一规则维护团队 LLM Wiki:ingest/query/lint skill + slash command + wiki-cli(纯 CLI 检索/校验/同步)。知识库是本地文件,AI 直接读 + 调 CLI,不依赖 MCP。规则真源在 AGENTS.md/_vocabulary.md。",
+  "version": "0.2.0",
   "author": {
     "name": "chuaishoushou"
   },
-  "keywords": ["wiki", "knowledge-base", "llm-wiki", "governance"],
-  "mcpServers": "./.mcp.json"
+  "keywords": ["wiki", "knowledge-base", "llm-wiki", "governance"]
 }

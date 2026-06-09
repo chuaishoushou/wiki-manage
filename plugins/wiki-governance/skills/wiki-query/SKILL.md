@@ -1,27 +1,27 @@
 ---
 name: wiki-query
 description: 从团队 LLM Wiki 查询知识并按需沉淀可复用答案。当用户问及团队/项目知识、模块、客户、概念、踩坑,或命中 _routes.md 关键词时使用。先走路由表精确加载,再检索综合,引用页面路径。
-allowed-tools: Read, Grep, Glob
+allowed-tools: Read, Grep, Glob, Bash(wiki-cli:*)
 ---
 
 # wiki-query:检索 + 综合 + 沉淀
 
-> 只读为主。规则真源是团队仓 `AGENTS.md` + `_routes.md` + `_vocabulary.md`。MCP 工具完整名形如 `mcp__wiki__wiki_*`;无 MCP 时回退 Grep/Read。
+> 只读为主。规则真源是团队仓 `AGENTS.md` + `_routes.md` + `_vocabulary.md`。检索用 `wiki-cli` 子命令,也可直接 Grep/Read 库里的 `.md` 文件查知识。
 
 ## 第 0 步:新鲜度自检
 
-调 `wiki_get_protocol`。若本地落后 origin → 先提示 `/wiki-sync`,否则可能基于旧库回答(尤其 Codex/Cursor 各自本地副本)。
+跑 `wiki-cli protocol`。若本地落后 origin → 先提示 `/wiki-sync`,否则可能基于旧库回答(尤其 Codex/Cursor 各自本地副本)。
 
 ## 第 1 步:路由优先
 
-调 `wiki_resolve_route`(传关键词,CLI: `wiki-cli route <kw>`):
-- 命中 → 按"必加载"列 `wiki_get_page` 读取;对话深入再读"可选加载"列。
+跑 `wiki-cli route <kw>`(传关键词):
+- 命中 → 按"必加载"列用 `wiki-cli get`(或直接 Read 对应路径)读取;对话深入再读"可选加载"列。
 - 报告"路由歧义"时,提示用户精确化或运行 lint。
 - 未命中 → 第 2 步。
 
 ## 第 2 步:检索
 
-调 `wiki_search`(传查询词)。结果按相关度排序,**注意结果里的 staleness 提示**。读最相关页(`wiki_get_page`)。
+跑 `wiki-cli search`(传查询词),或直接 Grep 库目录。结果按相关度排序,**注意结果里的 staleness 提示**。读最相关页(`wiki-cli get` 或直接 Read 路径)。
 
 ## 第 3 步:综合作答
 

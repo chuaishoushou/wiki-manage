@@ -1,4 +1,4 @@
-"""wiki-cli:命令行入口。与 MCP server 共享 wiki_core,确保行为一致。
+"""wiki-cli:命令行入口(wiki_core 的唯一入口,纯 CLI)。
 
 子命令:protocol / search / route / get / validate / lint / suggest / scan
 全部只读。lint 支持 --staged(供 git pre-commit hook)。
@@ -432,7 +432,7 @@ def _staged_md_files(root: str) -> List[str]:
 
 
 def cmd_sync_team(args):
-    """sync-team:把团队仓知识镜像同步到个人库 team/ 区(写操作,只在 CLI 不进只读 MCP)。"""
+    """sync-team:把团队仓知识镜像同步到个人库 team/ 区(写子命令,含写副作用)。"""
     root = _resolve_root(args)  # 个人库(同步目标)
     res = sync_mod.sync_team(root, args.team, do_pull=args.pull, dry_run=args.dry_run)
     if args.json:

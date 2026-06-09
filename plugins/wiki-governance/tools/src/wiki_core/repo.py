@@ -18,7 +18,7 @@ TEAM_WIKI_FALLBACK = os.path.expanduser("~/AI/team-wiki")
 PERSONAL_WIKI_FALLBACK = os.path.expanduser("~/AI/wiki")
 
 # 个人库下存放"团队仓镜像"的保留子目录(content_dir 下,即 wiki/team/)。
-# sync-team 把团队仓内容镜像到这里:可被 search/MCP 检索(查个人库即查到团队知识),
+# sync-team 把团队仓内容镜像到这里:可被 search 检索(查个人库即查到团队知识),
 # 但 lint 跳过它(团队页的 domain/frontmatter 不必符合个人库的受控词表,它是只读镜像)。
 TEAM_MIRROR_SUBDIR = "team"
 
@@ -78,7 +78,7 @@ def resolve_in_root(root: str, p: str) -> Optional[str]:
 
     允许:相对 root 的路径、落在 root 内的绝对路径。
     拒绝(返回 None):解析后跑到 root 之外的任何路径。
-    CLI 与 MCP 共用此围栏,一处修复两端生效。
+    各子命令共用此围栏,一处修复全局生效。
     """
     if not root:
         return None
@@ -114,7 +114,7 @@ def iter_pages(root: str, include_archive: bool = False, include_team: bool = Tr
     include_archive=True(安全审计):以 root 为遍历根,覆盖根级 archive/、log.md、
         revisions/ 等(spec §3.1 点名的"永久固化"泄密点),仅排除 EXCLUDE_DIRS。
         这修复了"双层布局(root 有 wiki/ 子目录 + 根级 archive/)下 archive 永远扫不到"。
-    include_team=True(默认):包含 team/ 团队镜像区(让 search/MCP 查得到团队知识)。
+    include_team=True(默认):包含 team/ 团队镜像区(让 search 查得到团队知识)。
         lint 传 include_team=False 跳过它 —— 团队页是只读镜像,不按个人库受控词表校验。
     """
     base = root if include_archive else content_dir(root)

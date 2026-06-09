@@ -4,7 +4,7 @@
 外加结构/协议文件(AGENTS.md / _routes.md / _vocabulary.md / overview.md)。
 命中敏感但声明不足的页会阻断导出(除非 --force)。
 
-★ 含写副作用(复制文件)→ 只进 CLI,【绝不】进只读 MCP(守只读不变量 1)。
+★ 含写副作用(复制文件)→ 是独立写子命令,只读检索/校验子命令【绝不】含写副作用(守只读不变量 1)。
 设计依据:spec § 3.1「团队仓发布 = 白名单导出,绝不 git push 整库」。
 """
 from __future__ import annotations

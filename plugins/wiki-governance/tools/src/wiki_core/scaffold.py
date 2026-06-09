@@ -8,7 +8,7 @@
 - 目录骨架 wiki/{domains/<each>,global,staging/domain-review,templates} + archive/ revisions/ raw/
 - 页面模板 wiki/templates/*
 
-含写副作用 → 只进 CLI,不进只读 MCP。
+含写副作用 → 是独立写子命令;只读子命令不含写副作用。
 """
 from __future__ import annotations
 
@@ -162,7 +162,7 @@ forked_from: https://github.com/Programming-With-Maury/Karpathy-LLM-Wiki
 ## Operations
 - **Ingest**:① 过 sensitivity 闸 ② `wiki-cli suggest` 定 domain/type/slug ③ 高置信落 domains/<x>/<type>s/,跨域判 global,低置信/歧义入 staging/domain-review ④ 落盘前 `wiki-cli validate` 不过不落 ⑤ 追加 log.md + revisions/ + 新页注册 _routes.md。
 - **Query**:先 `wiki-cli route` 走路由表,未命中再 `wiki-cli search`;引用页面路径;有持久价值的答案存 queries/。
-- **Lint(体检)**:跑 `wiki-cli lint`(或 MCP `wiki_lint`)出报告;修复需 owner 确认;报告落 revisions/。
+- **Lint(体检)**:跑 `wiki-cli lint` 出报告;修复需 owner 确认;报告落 revisions/。
 
 ## Staging owner 闸
 staging 晋升到 active 只能由该 domain 在 `_vocabulary.md` 登记的 owner 执行;UNASSIGNED 的 domain 新源滞留 staging。

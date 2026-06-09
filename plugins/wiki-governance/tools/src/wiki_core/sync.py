@@ -2,10 +2,10 @@
 
 用户决策:团队→个人 = 同步(镜像),不重分类、不学习。
 - 源:团队仓本地 clone(独立 git 仓)的 content_dir
-- 目标:个人库 content_dir/team/(即 wiki/team/);可被 search/MCP 检索,但不参与 lint
+- 目标:个人库 content_dir/team/(即 wiki/team/);可被 search 检索,但不参与 lint
 - 镜像语义:新增/修改/删除都对齐(幂等 —— 再次同步只动变化的页)
 - 溯源:写 team/.sync-manifest.json 记来源 repo / 分支 / commit / 时间 / 页数
-- 写操作:故只在 CLI(像 publish),不进只读 MCP
+- 写操作:sync-team 是写子命令(像 publish);检索/校验子命令只读
 """
 from __future__ import annotations
 

@@ -5,7 +5,7 @@
   1) unittest 全套
   2) CLI 端到端:protocol / suggest / lint(干净库应 0 error)/ scan(归档密钥应命中)/
      validate / route / publish(dry-run)/ 路径穿越拦截
-  3) MCP 端到端:initialize / tools/list(9 只读)/ tools/call / 畸形消息不崩
+  3) sync-team 团队→个人镜像 / WIKI_ROOT 解析链
   4) wiki-init 自检
 
 退出码:全过 0,否则 1。
@@ -20,7 +20,6 @@ import tempfile
 HERE = os.path.dirname(os.path.abspath(__file__))
 SRC = os.path.join(HERE, "src")
 CLI = os.path.join(HERE, "bin", "wiki-cli")
-MCP = os.path.join(HERE, "server", "wiki_mcp.py")
 TESTS = os.path.join(HERE, "tests")
 INIT = os.path.abspath(os.path.join(HERE, "..", "..", "..", "bin", "wiki-init"))
 
@@ -174,63 +173,6 @@ def cli_checks(root):
         check("CLI publish", False, f"{e}: {r.stdout[:120]}")
 
 
-def mcp_send(root, msgs):
-    env = dict(os.environ, WIKI_ROOT=root)
-    p = subprocess.run([sys.executable, MCP], input="\n".join(msgs) + "\n",
-                       capture_output=True, text=True, env=env, timeout=30)
-    out = []
-    for line in p.stdout.splitlines():
-        line = line.strip()
-        if line:
-            try:
-                out.append(json.loads(line))
-            except json.JSONDecodeError:
-                pass
-    return out
-
-
-def mcp_checks(root):
-    msgs = [
-        '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"9999-99-99"}}',
-        '{"jsonrpc":"2.0","method":"notifications/initialized"}',
-        '[{"jsonrpc":"2.0","id":99,"method":"ping"}]',  # 畸形 batch 数组
-        'garbage-not-json',                               # 畸形 JSON
-        '{"jsonrpc":"2.0","id":2,"method":"tools/list"}',
-        '{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"wiki_get_protocol","arguments":{}}}',
-        '{"jsonrpc":"2.0","id":4,"method":"tools/call","params":{"name":"wiki_get_page","arguments":{"path":"../../../etc/passwd"}}}',
-        '{"jsonrpc":"2.0","id":5,"method":"ping"}',       # 崩溃后仍应存活
-    ]
-    out = mcp_send(root, msgs)
-    by_id = {m.get("id"): m for m in out if "id" in m}
-
-    init = by_id.get(1)
-    check("MCP initialize(版本协商)", bool(init) and init["result"]["protocolVersion"] != "9999-99-99",
-          f"回 {init['result']['protocolVersion'] if init else '?'}")
-
-    tl = by_id.get(2)
-    tools = tl["result"]["tools"] if tl else []
-    names = [t["name"] for t in tools]
-    write_like = [n for n in names if any(w in n for w in ("write", "ingest", "delete", "publish", "save", "edit"))]
-    check("MCP tools/list(9 个,全只读)", len(names) == 9 and not write_like, f"{len(names)} tools, 写类={write_like}")
-
-    call = by_id.get(3)
-    check("MCP tools/call(get_protocol)", bool(call) and "content" in call.get("result", {}))
-
-    trav = by_id.get(4)
-    try:
-        txt = trav["result"]["content"][0]["text"]
-        check("MCP 路径穿越拦截", "越界" in txt or "非法" in txt, txt[:40])
-    except Exception:
-        check("MCP 路径穿越拦截", False)
-
-    # 畸形 batch 应回 -32600,且不杀进程
-    invalid = any(m.get("error", {}).get("code") == -32600 for m in out)
-    check("MCP 畸形 batch 回 -32600", invalid)
-
-    survive = by_id.get(5)
-    check("MCP 畸形消息后仍存活", bool(survive) and "result" in survive)
-
-
 def root_resolution_checks():
     """单元测试 WIKI_ROOT 解析优先级链(不依赖真实 ~/AI 库,monkeypatch 兜底常量)。
 
@@ -349,8 +291,6 @@ def main():
         build_fixture(root)
         print("\n[2/6] CLI 端到端")
         cli_checks(root)
-        print("\n[3/6] MCP 端到端")
-        mcp_checks(root)
         print("\n[4/6] wiki-init 自检")
         env = dict(os.environ, WIKI_ROOT=root)
         r = subprocess.run([sys.executable, INIT, "--platform", "codex", "--wiki-root", root],

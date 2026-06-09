@@ -17,5 +17,5 @@ allowed-tools: Bash(python3:*), Bash(git:*)
    - 加 `--pull`:同步前先对团队仓 `git pull --ff-only` 拿最新。
    - 团队页镜像到个人库 `wiki/team/` 区;增量幂等(再次同步只动变化的页)。
 4. 报告结果(新增/更新/删除/未变 + 来源 commit)。提醒用户:
-   - `team/` 区是**只读镜像**,可被 search / MCP 检索,但**要改团队知识请到团队仓改、再 `sync-team`**;别手改 `team/`(下次同步会覆盖)。
+   - `team/` 区是**只读镜像**,可被 `wiki-cli search` / 直接 Read/Grep 检索,但**写操作走 CLI**:要改团队知识请到团队仓改、再 `sync-team`;别手改 `team/`(下次同步会覆盖)。
    - 若提示"团队仓不是合法 wiki 根",说明团队仓还没初始化,需先在团队仓 `wiki-cli init`。

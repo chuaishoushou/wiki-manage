@@ -16,23 +16,23 @@ v1 明确"砍团队仓、只服务个人、不要 enforcement、做本机 Web �
 
 | | 约束 | 含义 |
 |---|---|---|
-| **A** | 平台:混用 Claude Code + Codex + Cursor | 规范层必须可移植(纯 markdown 最大公约数);跨平台主动能力走 MCP;CC 侧叠 plugin 走最佳路径 |
+| **A** | 平台:混用 Claude Code + Codex + Cursor | 规范层必须可移植(纯 markdown 最大公约数);跨平台主动能力走 wiki-cli(纯 CLI),知识库本地文件 AI 直接读;CC 侧叠 plugin 走最佳路径 |
 | **B** | 仓库:中心团队仓 + 成员只读 | 1-2 名维护者写入/ingest,15 名成员主要查询/消费 |
 | **C** | 治理:AI 自律 + 人工抽查,不上重 CI | 靠协议/词表让 AI 一致分类 + 定期 lint;**但维护者本机 pre-commit 校验不算"重 CI"** |
-| **D** | 运行:方案1+方向2,Web 后期 | 纯 git + 插件/skill 为零额外进程底座 + 轻量 MCP/CLI;Web 暂不做 |
+| **D** | 运行:方案1+方向2,Web 后期 | 纯 git + 插件/skill 为零额外进程底座 + 轻量 wiki-cli(纯 CLI);Web 暂不做 |
 
 ---
 
 ## 1. 核心结论:plugin vs skill
 
-> **做一个 Claude Code plugin,plugin 里捆绑的就是 skill —— 但两者都不是内核。内核是三家 AI 都能读的纯 markdown(`AGENTS.md` 协议 + `_vocabulary.md` 受控词表 + `SKILL.md` 工作流);因为团队是"在别的代码仓里干活、wiki 是独立仓"的用法,统一规范的实际主通道是 MCP,plugin 只是 Claude Code 这一侧的最佳投递外壳。**
+> **做一个 Claude Code plugin,plugin 里捆绑的就是 skill —— 但两者都不是内核。内核是三家 AI 都能读的纯 markdown(`AGENTS.md` 协议 + `_vocabulary.md` 受控词表 + `SKILL.md` 工作流);因为团队是"在别的代码仓里干活、wiki 是独立仓"的用法,统一规范的实际主通道是 wiki-cli(纯 CLI)+ 规则指针,知识库本地文件 AI 直接读;plugin 只是 Claude Code 这一侧的最佳投递外壳。**
 
 | 角色 | 谁来当 | 真源? |
 |---|---|---|
 | 规则真源(法律) | 团队仓根 `AGENTS.md` + `_vocabulary.md` | ✅ 唯一 |
 | 工作流内核(可移植) | 3 个 `SKILL.md`(ingest/query/lint) | 引用 AGENTS.md,不抄正文 |
 | 入口 | 4 个 slash command | = skill 手动触发面 |
-| 主动能力(跨平台承重墙) | 1 个轻量 MCP/CLI(同源) | 确定性逻辑唯一实现处 |
+| 主动能力(跨平台承重墙) | 1 个轻量 wiki-cli(纯 CLI) | 确定性逻辑唯一实现处 |
 | CC 投递外壳 | plugin + marketplace | 仅 CC 侧增强 |
 
 **为什么 plugin 不是内核**:Cursor 无 plugin 体系;Codex 的 plugin 与 CC **格式不兼容**(两套 manifest,要发两条流水线)。规则若只活在 plugin 里 → Codex/Cursor 拿不到 → 违反约束 A。
@@ -57,28 +57,27 @@ v1 明确"砍团队仓、只服务个人、不要 enforcement、做本机 Web �
 ├─ L3 入口(slash) /wiki-ingest /wiki-query /wiki-lint /wiki-sync
 │
 ├─ L4 主动能力  wiki-manage/plugins/wiki-governance/tools/ ──── 确定性逻辑唯一实现处(纯 stdlib)
-│   (注:tools 物理上放在插件目录内,因为 plugin 安装只拷贝插件目录;这样 .mcp.json/hook 才能引用到)
+│   (注:tools 物理上放在插件目录内,因为 plugin 安装只拷贝插件目录;这样 hook 才能引用到)
 │   src/wiki_core/  ← frontmatter / vocabulary / routes / search / suggest / sensitivity / validate / lint / publish / repo / cli
-│   bin/wiki-cli    ← CLI 入口(CI/手动/离线/pre-commit)
-│   server/wiki_mcp.py ← MCP 入口(同一 src;stdio 起步 → 后期 http)
+│   bin/wiki-cli    ← 唯一入口(纯 CLI;AI 直接调,也供 CI/手动/离线/pre-commit 用)
 │
 ├─ L5 CC 投递外壳  wiki-manage 根 .claude-plugin/marketplace.json ─ Claude Code 专属
-│   plugins/wiki-governance/{.claude-plugin/plugin.json, .mcp.json, hooks/hooks.json}
+│   plugins/wiki-governance/{.claude-plugin/plugin.json, hooks/hooks.json}
 │
 └─ L6 各平台适配层(薄,只"指向"不"复制") wiki-manage/adapters/ + bin/wiki-init
-    CC:     plugin(L5) 一键装
-    Codex:  ~/.codex/AGENTS.md(用户级指针) + config.toml [mcp_servers]
-    Cursor: .cursor/rules/wiki.mdc(Apply Manually) + .cursor/mcp.json
+    CC:     plugin(L5) 一键装 + ~/.claude/CLAUDE.md 规则指针
+    Codex:  ~/.codex/AGENTS.md(用户级规则指针)
+    Cursor: .cursor/rules/wiki.mdc(Apply Manually,规则指针)
 ```
 
 **两仓拆分**:`team-wiki.git`(内容+协议)与 `wiki-manage.git`(工具+plugin)分开 —— 规范升级不污染内容历史,内容 diff 干净便于人工抽查。
 
 ### 防 `CLAUDE.md ↔ plugin` 漂移铁律
 
-1. 规则正文**只允许活在 `AGENTS.md` + `_vocabulary.md`**;其他一切(CLAUDE.md/skill/适配层/MCP)只放指针。
+1. 规则正文**只允许活在 `AGENTS.md` + `_vocabulary.md`**;其他一切(CLAUDE.md/skill/适配层/wiki-cli 文案)只放指针。
 2. **`CLAUDE.md` 去规则化**:协议正文全抽进 AGENTS.md;团队仓 `.claude/CLAUDE.md` 与个人 `~/.claude/CLAUDE.md` 只留指针。
 3. SKILL.md 正文 = 触发器 + 极简步骤 + 决策树骨架 + "先 Read AGENTS.md" 指针,目标 < 200 行。
-4. CLI 与 MCP **同源**(同一 `src/`),绝不各写一份逻辑。
+4. wiki-cli 是确定性逻辑的**唯一实现**(同一 `src/`),绝不各处再写一份逻辑。
 5. 适配层只允许"指针",不允许协议正文副本。
 6. lint 把"协议正文重复"与"工具逻辑落后于协议(protocol_version 不匹配)"都列为一等检查项。
 
@@ -98,13 +97,13 @@ v1 明确"砍团队仓、只服务个人、不要 enforcement、做本机 Web �
 - `git init` 前先 secret-scan + 人工裁定,**以脱敏快照作为 commit 0,不保留单人旧历史**(否则 git 历史 + log + revisions + archive 四处永久固化)。
 - `personal/` 一律 `exclude`。
 
-### 3.2 🔴 跨工作区:被动注入在三家全失效 → MCP 是主通道
+### 3.2 🔴 跨工作区:被动注入在三家全失效 → 规则指针 + wiki-cli 是主通道
 
 成员日常在**别的代码仓**里干活,工作区根不是 wiki 仓,wiki 的 `AGENTS.md`/`SKILL.md`/`.cursor/rules` 不会被自动加载。修正:
 
-- 协议指针放**用户级**(`~/.claude/CLAUDE.md`、`~/.codex/AGENTS.md`),跨工作区生效。
-- 统一规范的可靠送达靠 MCP:`wiki_get_protocol` tool 返回协议摘要 + 版本;skill 第一步、写操作前强制先调。
-- MCP 从"配角"升级为"跨平台一致性承重墙"。
+- 协议指针放**用户级**(`~/.claude/CLAUDE.md`、`~/.codex/AGENTS.md`、`.cursor/rules/wiki.mdc`),跨工作区生效,告诉 AI 库位置 + 两件事(直接读库文件查知识、用 wiki-cli 做 protocol/检索/校验/分类/同步)。
+- 统一规范的可靠送达靠规则指针 + wiki-cli:AI 跨工作区被指针唤醒后,用 `wiki-cli protocol` 拿协议摘要 + 版本(也可直接 Read 库根 `AGENTS.md`);skill 第一步、写操作前强制先拉。
+- 跨平台一致性承重墙 = **规则指针 + 纯 CLI 的 wiki-cli + AI 直接读本地库文件**,而非常驻服务。
 
 ### 3.3 🔴 一致性在 N=1 已失守 → 写入时校验闸(非重 CI)
 
@@ -118,7 +117,7 @@ v1 明确"砍团队仓、只服务个人、不要 enforcement、做本机 Web �
 
 - 晋升权**按 domain 绑定 owner**(写进 `_vocabulary.md`),弱域指给真正懂的人。
 - 两段式 ingest:成员 AI 产"近可晋升的 staging 候选页",维护者只审+晋升。
-- MCP 检索结果**附带"本地落后 N 个 commit"警告**,陈旧可见。
+- wiki-cli 检索结果**附带"本地落后 N 个 commit"警告**,陈旧可见。
 - staging 给可见 SLA + 状态字段;被拒归档留 `reject_reason`。
 
 ---
@@ -130,9 +129,9 @@ v1 明确"砍团队仓、只服务个人、不要 enforcement、做本机 Web �
 1. **受控词表 `_vocabulary.md`**:① 合法 domain + 边界 + owner;② page_type 闭集;③ tag 白名单 + 同义归并;④ global 晋升判定(≥2 域)。
 2. **ingest 分类决策树**(固化进 `wiki-ingest` SKILL.md):
    ```
-   新料 → wiki_validate(frontmatter 闭集校验,不过不落盘)
-        → wiki_sensitivity(命中敏感 → maintainer-only/exclude)
-        → wiki_suggest_path(确定性算法,非 LLM 打分)
+   新料 → wiki-cli validate(frontmatter 闭集校验,不过不落盘)
+        → wiki-cli scan(命中敏感 → maintainer-only/exclude)
+        → wiki-cli suggest(确定性算法,非 LLM 打分)
           ├ 高置信命中词表某 domain → 落 domains/<x>/<type>/<slug>.md
           ├ 跨 2+ domain → 判 global / domain-local
           └ 歧义/低置信 → 强制 staging/domain-review/,停,等 owner 裁决
@@ -144,26 +143,24 @@ v1 明确"砍团队仓、只服务个人、不要 enforcement、做本机 Web �
 
 ---
 
-## 5. MCP/CLI 工具面(约束 D)
+## 5. wiki-cli 工具面(约束 D)
 
-MCP = **只读检索 + 计算 + 建议**;写入永远走 file tools + skill(人可审、git diff 可见)。同一 `src/` 两入口,tool 数克制(Cursor ~40 tool 上限):
+wiki-cli = **只读检索 + 计算 + 建议**;写入永远走 file 操作 + skill(人可审、git diff 可见)。纯 CLI 单一入口,AI 直接 Bash 调用;查知识也可绕过 CLI 直接 Read/Grep 库文件:
 
-| MCP tool / CLI 子命令 | 作用 | 副作用 |
+| wiki-cli 子命令 | 作用 | 副作用 |
 |---|---|---|
-| `wiki_get_protocol` / `wiki protocol` | 返回 AGENTS.md+_vocabulary.md 摘要 + protocol_version + 本地落后 commit 数 | 无 |
-| `wiki_search` / `wiki search` | 全文/关键词检索(内容 + frontmatter) | 无 |
-| `wiki_resolve_route` / `wiki route` | 解析 `_routes.md` 关键词→文件 + 孤儿页逆查 | 无 |
-| `wiki_get_page` / `wiki get` | 按路径取页内容 + frontmatter | 无 |
-| `wiki_validate` / `wiki validate` | frontmatter 必填/枚举闭集/命名/tag 白名单校验 | 无 |
-| `wiki_lint` / `wiki lint` | 跑 12 步体检,结构化报告 | 无(落盘由 CLI 选项控制) |
-| `wiki_suggest_path` / `wiki suggest` | 读 `_vocabulary.md` 给 domain/type/slug + confidence | 无 |
-| `wiki_sensitivity` / `wiki scan` | secret/PII/攻击面扫描,给 sensitivity 建议 | 无 |
+| `wiki-cli protocol` | 返回 AGENTS.md+_vocabulary.md 摘要 + protocol_version + 本地落后 commit 数 | 无 |
+| `wiki-cli search` | 全文/关键词检索(内容 + frontmatter) | 无 |
+| `wiki-cli route` | 解析 `_routes.md` 关键词→文件 + 孤儿页逆查 | 无 |
+| `wiki-cli get` | 按路径取页内容 + frontmatter | 无 |
+| `wiki-cli validate` | frontmatter 必填/枚举闭集/命名/tag 白名单校验 | 无 |
+| `wiki-cli lint` | 跑 12 步体检,结构化报告 | 无(落盘由 CLI 选项控制) |
+| `wiki-cli suggest` | 读 `_vocabulary.md` 给 domain/type/slug + confidence | 无 |
+| `wiki-cli scan` | secret/PII/攻击面扫描,给 sensitivity 建议 | 无 |
 
-**Codex tools-only 判废坑**:MCP server 始终暴露 ≥1 个 resource 占位(`wiki://overview`),功能主体仍是 tools。
+**部署形态**(贴死约束 D):纯 CLI,零常驻进程 —— AI 每次 Bash 调用拉起一次即退出,无服务、无端口、无 bearer token。若未来要团队级 http 集中共享/索引,再单独引入服务端(见 v2.5),届时仍复用同一 `src/`。
 
-**部署形态**(贴死约束 D):起步 = 本机 stdio(零常驻进程);后期可选 = 团队 streamable-http(定时 git pull + bearer token + 内网);transport 升级时 server 源码不变只改配置。
-
-**CLI 作为 bundled script**:可被 pre-commit hook 调用;纯 Python 标准库(纯 API 环境无网络不能装包)。
+**CLI 作为 bundled script**:既给 AI 直接调,也可被 pre-commit hook 调用;纯 Python 标准库(纯 API 环境无网络不能装包)。
 
 ---
 
@@ -172,12 +169,12 @@ MCP = **只读检索 + 计算 + 建议**;写入永远走 file tools + skill(人�
 | | Claude Code(最佳) | Codex(第二) | Cursor(降级) |
 |---|---|---|---|
 | 规范层 | 用户级 CLAUDE.md 指针 + clone 读 AGENTS.md | `~/.codex/AGENTS.md` 用户级指针 | `.cursor/rules/wiki.mdc`(Apply Manually,@-mention) |
-| 工作流 skill | plugin 捆绑(命名空间隔离) | SKILL.md 复制到 `.agents/skills`(实测定论)+ `openai.yaml` sidecar | 无原生 skill,靠 MCP + @-mention |
-| 主动能力 MCP | plugin 内 `.mcp.json` 自动带 | `config.toml [mcp_servers.wiki]` | `.cursor/mcp.json` |
+| 工作流 skill | plugin 捆绑(命名空间隔离) | SKILL.md 复制到 `.agents/skills`(实测定论)+ `openai.yaml` sidecar | 无原生 skill,靠规则指针 + @-mention |
+| 主动能力 | plugin 一并装好 wiki-cli + 规则指针 | `wiki-init` 写 `~/.codex/AGENTS.md` 指针 + 设库路径 | `wiki-init` 写 `.cursor/rules/wiki.mdc` 指针 + 设库路径 |
 | 分发/更新 | marketplace 一键 + tag 发版 | git pull 工具仓(plugin 第二通道,需独立 manifest) | git pull,无版本化 UI |
-| 一致性保证 | skill+MCP+plugin | AGENTS.md+MCP(skill 行为字段不可移植) | **MCP-only**(规则文件只作便利) |
+| 一致性保证 | skill+wiki-cli+plugin | AGENTS.md+wiki-cli(skill 行为字段不可移植) | **规则指针 + wiki-cli**(三家共用同一 CLI 与库文件) |
 
-**跨平台"结果一致"靠 MCP 兜底**:三家连同一 MCP,检索/校验/lint/分类建议**计算结果一致**,平台差异退化为"触发体验"差异。
+**跨平台"结果一致"靠确定性的 wiki-cli + 规则指针兜底**:三家跑同一 wiki-cli、读同一份本地库文件,检索/校验/lint/分类建议**计算结果一致**,平台差异退化为"触发体验"差异。
 
 **版本策略**:`plugin.json` 省略 version → 每 commit 算新版;成员 pin 到 release tag(`wiki-2026.06`)而非裸追 main,给评审/灰度窗口;规则正文变更走 PR + 第二 owner review。私有仓后台 autoUpdate 需环境预置 `GITHUB_TOKEN`(交互式凭证会阻塞启动)。
 
@@ -193,8 +190,8 @@ MCP = **只读检索 + 计算 + 建议**;写入永远走 file tools + skill(人�
 | 1 | 内容仓 git 化 | 以脱敏快照 `git init`(不留旧历史)→ protected branch + 成员只读 role | 依赖步 0 |
 | 2 | 协议从个人 CLAUDE.md 抽进 AGENTS.md | 团队通用进 SSOT;CLAUDE.md 只留指针(放用户级);补 `_vocabulary.md` | — |
 | 3 | 抽 3 个 skill + 写 lint.py + 接 pre-commit | 先本机 `~/.claude/skills/` 跑通 | — |
-| 4 | wiki-manage 重生为 marketplace 仓 | plugin + MCP(stdio,带 resource 占位) | 依赖步 3 |
-| 5 | 团队装载 | CC marketplace 一键;Codex/Cursor 用 `wiki-init` 生成配置 + 自检 | 依赖步 4 |
+| 4 | wiki-manage 重生为 marketplace 仓 | plugin + wiki-cli(纯 CLI,bundled script) | 依赖步 3 |
+| 5 | 团队装载 | CC marketplace 一键;Codex/Cursor 用 `wiki-init` 写规则指针 + 设库路径 + 自检 | 依赖步 4 |
 
 **已核实**:`~/AI/wiki` 无 `.git`(硬阻塞);`~/AI/wiki-manage` 已是 git 仓。
 
@@ -206,8 +203,8 @@ MCP = **只读检索 + 计算 + 建议**;写入永远走 file tools + skill(人�
 |---|---|---|
 | **v0 安全基线** | 不泄密 | secret-scan 工具(`wiki scan`)+ sensitivity 字段 + publish 白名单脚本 + 审计报告 |
 | **v1 git+插件/skill 底座** | 15 人拿到统一规则、只读消费、能 ingest/query/lint | 内容仓 git 化 + AGENTS.md SSOT + `_vocabulary.md` + 3 skill + `lint.py`+pre-commit + plugin/marketplace + Codex/Cursor 薄适配 |
-| **v2 MCP/CLI 主动能力** | 三家检索/校验/分类建议结果一致 | 同源 `src/` + CLI + MCP(9 tool + 1 resource,stdio)+ `wiki_get_protocol`/`wiki_changes`/落后警告 + `wiki-init` |
-| **v2.5(可选)团队 http MCP** | 统一索引/集中审计/零安装 | streamable-http + 定时 git pull + bearer token + 内网 + 健康检查 |
+| **v2 wiki-cli 主动能力** | 三家检索/校验/分类建议结果一致 | `src/` + 纯 CLI `wiki-cli`(8 子命令)+ `protocol`/`changes`/落后警告 + 规则指针 + `wiki-init` |
+| **v2.5(可选)团队 http 共享** | 统一索引/集中审计/零安装 | 引入服务端(复用同一 `src/`)+ streamable-http + 定时 git pull + bearer token + 内网 + 健康检查 |
 | **v3(后期)Web 面板** | 可视化抽查/审计 | 只读看板(lint 趋势/staging 待审/漂移热点) |
 
 ---
@@ -215,8 +212,8 @@ MCP = **只读检索 + 计算 + 建议**;写入永远走 file tools + skill(人�
 ## 9. 最大风险(诚实,含缓解)
 
 1. **最终一致 + owner 单点**:错误有窗口期,会先传播再被抓;owner 休假/离职是真实瓶颈。缓解:词表+决策树+staging 闸收敛判断;pre-commit 把"最终一致"前移成"写入时一致";owner ≥2 互备 + 月度词表 review。强一致只能上 v3 managed-settings(对 15 人暂不划算)。
-2. **跨平台不对等(Cursor 二等公民)**:plugin/hook/autoUpdate 是 CC 专属。缓解:核心治理只沉淀在 AGENTS.md(文本)+ MCP(工具)两层(三家都吃);Cursor 明确为 MCP-only。
-3. **工程坑**:plugin.json version 陷阱、Codex#14242(tools-only 判废)、Cursor 40-tool 上限、skill description 预算被既有 ~17 个 FLUX skill 挤占。缓解:v1 落地前在团队实际客户端版本逐项实测;version 选"省略靠 SHA";http 设为可选档;MCP 挂掉可降级回 CLI/stdio。
+2. **跨平台不对等(Cursor 二等公民)**:plugin/hook/autoUpdate 是 CC 专属。缓解:核心治理只沉淀在 AGENTS.md(文本)+ wiki-cli(纯 CLI 工具)两层(三家都吃,且 AI 还能直接 Read 库文件);Cursor 明确为"规则指针 + wiki-cli"。
+3. **工程坑**:plugin.json version 陷阱、skill description 预算被既有 ~17 个 FLUX skill 挤占。缓解:v1 落地前在团队实际客户端版本逐项实测;version 选"省略靠 SHA"。wiki-cli 是纯 CLI,无常驻进程,不存在 server 挂掉问题;团队 http 共享留到 v2.5 再单独评估。
 
 ---
 
@@ -224,4 +221,4 @@ MCP = **只读检索 + 计算 + 建议**;写入永远走 file tools + skill(人�
 
 - Codex skills 目录路径(`.agents/skills` 已基本定论,仍需团队实际版本验证)。
 - Cursor 是否原生读 SKILL.md / `.cursorrules` 与 AGENTS.md 优先级冲突。
-- 团队实际 CC/Codex/Cursor 版本上:plugin 自动安装提示、Codex tools-only server、skill description 触发预算。
+- 团队实际 CC/Codex/Cursor 版本上:plugin 自动安装提示、`wiki-init` 写规则指针后三家是否稳定加载、skill description 触发预算。

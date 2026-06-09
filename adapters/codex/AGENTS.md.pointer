@@ -2,11 +2,12 @@
 
 > 仅指针,不复制协议正文(防漂移)。占位符由 bin/wiki-init 替换。
 
-本机维护一个团队 LLM Wiki,位于 `{{WIKI_ROOT}}`。
+本机维护一个 LLM Wiki(知识库),根目录 `{{WIKI_ROOT}}`。它是本地 markdown,**直接读 + 用 wiki-cli**,不经 MCP。
 
-在任意工作区中,只要任务涉及该 wiki 的查询或入库:
-1. 先调 MCP 工具 `wiki_get_protocol` 拉取协议摘要 + 版本 + 新鲜度(或直接读 `{{WIKI_ROOT}}/AGENTS.md` 与 `{{WIKI_ROOT}}/_vocabulary.md`)。
-2. 查询走 `wiki_resolve_route` / `wiki_search`。
-3. 入库(仅维护者)走 `wiki_suggest_path` + `wiki_validate` 后用编辑器落盘;低置信入 `staging/`。
+任务涉及该 wiki 的查询/入库/同步时:
+1. 协议与分类闭集:读 `{{WIKI_ROOT}}/AGENTS.md` + `{{WIKI_ROOT}}/_vocabulary.md`;或 `wiki-cli --root "{{WIKI_ROOT}}" protocol`。
+2. 查知识:直接 Grep/Read `{{WIKI_ROOT}}` 下的 `.md`;或 `wiki-cli --root "{{WIKI_ROOT}}" search/route/get`。
+3. 入库(仅维护者):`wiki-cli suggest` → 补 frontmatter → `wiki-cli validate` 通过后用编辑器落盘;低置信入 `staging/`。
+4. 同步团队知识到个人库:`wiki-cli --root "{{WIKI_ROOT}}" sync-team --team <团队仓clone>`。
 
-规则真源:`{{WIKI_ROOT}}/AGENTS.md` + `{{WIKI_ROOT}}/_vocabulary.md`。
+wiki-cli:`{{WIKI_MANAGE}}/plugins/wiki-governance/tools/bin/wiki-cli`。规则真源:`{{WIKI_ROOT}}/AGENTS.md` + `{{WIKI_ROOT}}/_vocabulary.md`。

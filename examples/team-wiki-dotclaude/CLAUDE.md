@@ -8,6 +8,6 @@
 - `_routes.md` —— 关键词路由表
 - `overview.md` —— 顶层地图
 
-或调 MCP 工具 `wiki_get_protocol` 拿协议摘要 + 版本 + 新鲜度。
+或用 `wiki-cli protocol` 拿协议摘要 + 版本 + 新鲜度(也可直接 Read 上述本地 .md 文件)。
 
 > 规则正文只活在 `AGENTS.md` + `_vocabulary.md`。本文件、plugin、各平台适配层一律只放指针。
