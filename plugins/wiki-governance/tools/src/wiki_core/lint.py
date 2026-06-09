@@ -18,7 +18,7 @@ _MD_LINK = re.compile(r"\[[^\]]*\]\(([^)]+)\)")
 
 def _check_dead_links(root: str) -> List[Dict[str, str]]:
     issues: List[Dict[str, str]] = []
-    for path in repo.iter_pages(root):
+    for path in repo.iter_pages(root, include_team=False):
         try:
             _, body, _ = frontmatter.read_page(path)
         except (OSError, UnicodeDecodeError):
@@ -44,7 +44,7 @@ def _check_orphans(root: str, routes: List[routes_mod.Route]) -> List[Dict[str, 
     """
     covered = routes_mod.covered_paths(root, routes)
     issues: List[Dict[str, str]] = []
-    for path in repo.iter_pages(root):
+    for path in repo.iter_pages(root, include_team=False):
         base = os.path.basename(path)
         is_key = base == "README.md" or "/concepts/" in path.replace("\\", "/")
         if not is_key:
@@ -61,7 +61,7 @@ def _check_duplicates(root: str) -> List[Dict[str, str]]:
     天然重名,不算重复)以及 README/overview。
     """
     seen: Dict[str, List[str]] = {}
-    for path in repo.iter_pages(root):
+    for path in repo.iter_pages(root, include_team=False):
         base = os.path.basename(path)
         norm = path.replace("\\", "/")
         if base in ("README.md", "overview.md") or "/modules/" in norm:
@@ -109,7 +109,7 @@ def _check_structure(root: str) -> List[Dict[str, str]]:
         dirnames[:] = [d for d in dirnames if d not in repo.EXCLUDE_DIRS]
         rel = os.path.relpath(dirpath, root)
         parts = rel.split(os.sep)
-        if "archive" in parts or "templates" in parts:
+        if "archive" in parts or "templates" in parts or repo.TEAM_MIRROR_SUBDIR in parts:
             continue
         if os.path.basename(dirpath) in standard_type_dirs:
             continue  # 空的标准类型目录是合法占位
@@ -133,7 +133,7 @@ def lint(root: str, vocab: Vocabulary = None) -> Dict[str, Any]:
     # 1. 逐页 frontmatter 校验
     fm_issues: List[Dict[str, str]] = []
     page_count = 0
-    for path in repo.iter_pages(root):
+    for path in repo.iter_pages(root, include_team=False):
         page_count += 1
         try:
             meta, _, has_fm = frontmatter.read_page(path)
@@ -208,6 +208,10 @@ def lint_files(root: str, files: List[str], vocab: Vocabulary = None) -> Dict[st
     issues: List[Dict[str, str]] = []
     for path in files:
         if not path.endswith(".md") or not os.path.isfile(path):
+            continue
+        # team 镜像区(wiki/team/)是只读镜像,不按个人库受控词表校验
+        _rel = os.path.relpath(os.path.abspath(path), repo.content_dir(root))
+        if not _rel.startswith("..") and _rel.split(os.sep)[0] == repo.TEAM_MIRROR_SUBDIR:
             continue
         try:
             meta, _, has_fm = frontmatter.read_page(path)

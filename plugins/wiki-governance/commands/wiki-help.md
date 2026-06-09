@@ -14,14 +14,15 @@ description: (任何人)列出团队 wiki 插件的所有能力 / 命令
 - 完整(新原始资料进团队仓):skill **wiki-ingest**(维护者)—— 敏感度闸 + 分类决策树
 
 **同步团队知识**
-- `wiki-cli changes`(或 MCP `wiki_changes`)— 看团队仓有哪些待更新知识(只读)
-- `/wiki-sync` — 确认后手动应用更新(= git pull);**不会自动更新**
+- 团队知识镜像进个人库(`WIKI_ROOT`=个人库时用):`/wiki-sync-team` 或 `wiki-cli sync-team --team <团队仓clone>` — 把团队仓**原样镜像**到个人库 `wiki/team/` 只读区(可检索、增量幂等、不重分类)
+- `wiki-cli changes`(或 MCP `wiki_changes`)— 看团队仓有哪些待更新知识(只读;`WIKI_ROOT`=团队 clone 时用)
+- `/wiki-sync` — 确认后手动 `git pull` 当前库;**不会自动更新**
 
 **维护(维护者)** — skill: wiki-lint
 - 体检 / git init 前安全审计;底层 MCP `wiki_lint` / `wiki_sensitivity`
 
 **命令行(CLI 与 MCP 同源,纯 Python 标准库)**
-`wiki-cli init`(建库) `protocol` `search` `route` `get` `validate` `lint` `suggest` `scan`[进阶] `publish`[进阶]
+`wiki-cli init`(建库) `protocol` `search` `route` `get` `validate` `lint` `suggest` `scan`[进阶] `publish`[进阶] `sync-team`(团队→个人镜像) `changes`
 
 **关键概念**:规则真源 = 团队仓 `AGENTS.md` + `_vocabulary.md`(受控分类清单);你的 AI 连哪个库由环境变量 `WIKI_ROOT` 决定。
 新成员先看 onboarding;全新团队用 `wiki-cli init` 建库。

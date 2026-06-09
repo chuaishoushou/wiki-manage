@@ -25,6 +25,14 @@
 ### ❌ 反模式:`git pull` 后"再 ingest 一遍"
 团队仓里的页**早已分类好**(每页有 frontmatter(元数据头)、落在正确 domain(领域)、进了路由)。拉下来就是拿成品,**直接读**。再跑一遍 ingest(入库消化)= 同一份知识在每人本地重复加工、还可能各自加工出不同结果,既冗余又破坏 SSOT(唯一真源)。**绝不要这么做。**
 
+### ✅ 允许:把团队知识**原样镜像**进个人库(`sync-team`)
+若你想在**一个库**里同时查个人笔记 + 团队知识(而不是配两个 `WIKI_ROOT`),用
+`wiki-cli sync-team --team <团队仓clone>` 把团队仓**原样镜像**到个人库的 `wiki/team/` 只读区:
+- **原样拷贝,不重分类、不再 ingest** —— 因此**不触犯**上面的反模式(反模式反对的是"重新加工",镜像不加工)。
+- 团队页落在个人库 `team/` 区:**可被 search / MCP 检索**(查个人库即覆盖团队知识),但**不参与个人库 lint**(团队页按团队仓的规则,不必符合你个人库的受控词表)。
+- **只读镜像**:要改团队知识仍去团队仓改、再 `sync-team`;别手改 `team/` 区(下次同步会覆盖)。
+- 增量幂等:再次同步只动变化的页(新增/改/删对齐),`team/.sync-manifest.json` 记来源 commit。
+
 ## 两种"添加知识",轻重不同
 
 - **轻(个人库 / 已知归属)**:`wiki-cli new <type> <slug> --domain <d>` 一条命令生成合规页骨架,填正文即可。不必跑完整流程。
@@ -39,5 +47,6 @@ git clone https://github.com/chuaishoushou/team-wiki.git ~/AI/team-wiki        #
 wiki-cli init ~/my-wiki --domains 笔记     # 个人库:另开一个
 wiki-cli --root ~/AI/team-wiki  search "..."  # 查团队
 wiki-cli --root ~/my-wiki    new concept x --domain 笔记   # 往个人库轻量加页
+wiki-cli --root ~/my-wiki    sync-team --team ~/AI/team-wiki  # 把团队知识原样镜像进个人库 team/(可检索、只读)
 ```
 MCP(模型上下文协议)侧配两条:`wiki-team`(WIKI_ROOT 指团队 clone,只读消费)、`wiki-personal`(WIKI_ROOT 指个人库,可写)。

@@ -14,7 +14,7 @@ from typing import Any, Dict, List
 from . import frontmatter, repo, routes as routes_mod, search as search_mod
 from . import sensitivity as sens_mod, suggest as suggest_mod, validate as validate_mod
 from . import lint as lint_mod, publish as publish_mod, scaffold as scaffold_mod
-from . import changes as changes_mod, SUPPORTED_PROTOCOL_VERSION
+from . import changes as changes_mod, sync as sync_mod, SUPPORTED_PROTOCOL_VERSION
 from .vocabulary import load as load_vocab
 
 
@@ -431,6 +431,18 @@ def _staged_md_files(root: str) -> List[str]:
         return []
 
 
+def cmd_sync_team(args):
+    """sync-team:把团队仓知识镜像同步到个人库 team/ 区(写操作,只在 CLI 不进只读 MCP)。"""
+    root = _resolve_root(args)  # 个人库(同步目标)
+    res = sync_mod.sync_team(root, args.team, do_pull=args.pull, dry_run=args.dry_run)
+    if args.json:
+        _emit(res, True)
+        sys.exit(0 if res.get("ok") else 1)
+    print(sync_mod.format_text(res))
+    if not res.get("ok"):
+        sys.exit(1)
+
+
 # ---------- argparse ----------
 
 def build_parser() -> argparse.ArgumentParser:
@@ -459,6 +471,12 @@ def build_parser() -> argparse.ArgumentParser:
     sp = sub.add_parser("changes", help="检查团队仓有哪些待更新知识(只读:git fetch+diff,不自动应用)")
     sp.add_argument("--no-fetch", action="store_true", help="不联网 fetch,基于上次同步比较")
     sp.set_defaults(func=cmd_changes)
+
+    sp = sub.add_parser("sync-team", help="把团队仓知识镜像同步到个人库 team/ 区(增量;含写副作用)")
+    sp.add_argument("--team", required=True, help="团队仓本地 clone 路径(独立 git 仓,知识源)")
+    sp.add_argument("--pull", action="store_true", help="同步前先对团队仓 git pull --ff-only 拿最新")
+    sp.add_argument("--dry-run", action="store_true", help="只预览将同步什么,不写盘")
+    sp.set_defaults(func=cmd_sync_team)
 
     sp = sub.add_parser("protocol", help="协议版本 + 分支/版本 + 新鲜度 + 闭集")
     sp.set_defaults(func=cmd_protocol)

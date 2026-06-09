@@ -275,6 +275,57 @@ def root_resolution_checks():
             os.chdir(orig_cwd)
 
 
+def sync_checks():
+    """测 sync-team:团队仓→个人库 team/ 镜像(首次/幂等/增量删除/检索可达/lint 跳过)。"""
+    if SRC not in sys.path:
+        sys.path.insert(0, SRC)
+    from wiki_core import sync, search as search_mod, lint as lint_mod
+
+    def _w(p, c):
+        os.makedirs(os.path.dirname(p), exist_ok=True)
+        with open(p, "w", encoding="utf-8") as f:
+            f.write(c)
+
+    with tempfile.TemporaryDirectory() as team, tempfile.TemporaryDirectory() as personal:
+        open(os.path.join(team, "AGENTS.md"), "w").close()  # 团队仓 = 合法 wiki 根
+        tc = os.path.join(team, "wiki", "domains", "ops", "concepts")
+        _w(os.path.join(tc, "deploy.md"), "# 部署\n团队部署知识")
+        _w(os.path.join(tc, "alert.md"), "# 告警\n团队告警知识")
+        open(os.path.join(personal, "AGENTS.md"), "w").close()  # 个人库 = 合法 wiki 根
+        os.makedirs(os.path.join(personal, "wiki"))
+
+        r1 = sync.sync_team(personal, team)
+        check("sync:首次镜像 2 页", r1.get("ok") and len(r1["added"]) == 2, f"added={r1.get('added')}")
+        mr = sync.mirror_root(personal)
+        check("sync:镜像文件落地", os.path.isfile(os.path.join(mr, "domains/ops/concepts/deploy.md")))
+
+        r2 = sync.sync_team(personal, team)
+        check("sync:幂等(再同步全 unchanged)",
+              not r2["added"] and not r2["updated"] and r2["unchanged_count"] == 2,
+              f"a={r2['added']} u={r2['updated']} unch={r2['unchanged_count']}")
+
+        _w(os.path.join(tc, "deploy.md"), "# 部署\n更新后的部署知识")
+        os.remove(os.path.join(tc, "alert.md"))
+        _w(os.path.join(tc, "rollback.md"), "# 回滚\n新增")
+        r3 = sync.sync_team(personal, team)
+        check("sync:增量对齐(改1/删1/增1)",
+              r3["updated"] == ["domains/ops/concepts/deploy.md"]
+              and r3["deleted"] == ["domains/ops/concepts/alert.md"]
+              and r3["added"] == ["domains/ops/concepts/rollback.md"],
+              f"u={r3['updated']} d={r3['deleted']} a={r3['added']}")
+        check("sync:删除页镜像已移除",
+              not os.path.isfile(os.path.join(mr, "domains/ops/concepts/alert.md")))
+
+        res = search_mod.search(personal, "回滚", limit=10)
+        in_team = [r for r in res if "team" in r["path"].replace("\\", "/").split("/")]
+        check("sync:个人库 search 检索到 team 镜像", bool(in_team), f"paths={[r['path'] for r in res]}")
+
+        rep = lint_mod.lint(personal)
+        team_errs = [i for s in rep["sections"] for i in s["issues"]
+                     if "team" in (i.get("path") or "").replace("\\", "/").split("/")]
+        check("sync:lint 跳过 team 镜像区", not team_errs, f"team_errs={team_errs}")
+
+
 def main():
     print("=" * 60)
     print("wiki-manage 自测")
@@ -289,6 +340,9 @@ def main():
 
     print("\n[1b/6] WIKI_ROOT 解析优先级链(团队库优先于个人库兜底)")
     root_resolution_checks()
+
+    print("\n[1c/6] sync-team 团队→个人镜像同步")
+    sync_checks()
 
     # 2-4) 端到端(临时 fixture)
     with tempfile.TemporaryDirectory(prefix="wiki-selftest-") as root:

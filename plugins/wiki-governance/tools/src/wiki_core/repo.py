@@ -17,6 +17,11 @@ EXCLUDE_DIRS = {".git", ".obsidian", ".idea", ".claude", "raw", "node_modules"}
 TEAM_WIKI_FALLBACK = os.path.expanduser("~/AI/team-wiki")
 PERSONAL_WIKI_FALLBACK = os.path.expanduser("~/AI/wiki")
 
+# 个人库下存放"团队仓镜像"的保留子目录(content_dir 下,即 wiki/team/)。
+# sync-team 把团队仓内容镜像到这里:可被 search/MCP 检索(查个人库即查到团队知识),
+# 但 lint 跳过它(团队页的 domain/frontmatter 不必符合个人库的受控词表,它是只读镜像)。
+TEAM_MIRROR_SUBDIR = "team"
+
 
 def find_wiki_root_verbose(start: Optional[str] = None) -> Tuple[Optional[str], str]:
     """查找 wiki 根并返回来源,便于成员自查"我连到的是哪个库"。
@@ -101,7 +106,7 @@ def content_dir(root: str) -> str:
     return sub if os.path.isdir(sub) else root
 
 
-def iter_pages(root: str, include_archive: bool = False) -> Iterator[str]:
+def iter_pages(root: str, include_archive: bool = False, include_team: bool = True) -> Iterator[str]:
     """遍历 .md 页面。
 
     include_archive=False(默认,routine):只扫 content_dir(<root>/wiki 或 root),
@@ -109,6 +114,8 @@ def iter_pages(root: str, include_archive: bool = False) -> Iterator[str]:
     include_archive=True(安全审计):以 root 为遍历根,覆盖根级 archive/、log.md、
         revisions/ 等(spec §3.1 点名的"永久固化"泄密点),仅排除 EXCLUDE_DIRS。
         这修复了"双层布局(root 有 wiki/ 子目录 + 根级 archive/)下 archive 永远扫不到"。
+    include_team=True(默认):包含 team/ 团队镜像区(让 search/MCP 查得到团队知识)。
+        lint 传 include_team=False 跳过它 —— 团队页是只读镜像,不按个人库受控词表校验。
     """
     base = root if include_archive else content_dir(root)
     for dirpath, dirnames, filenames in os.walk(base):
@@ -123,6 +130,12 @@ def iter_pages(root: str, include_archive: bool = False) -> Iterator[str]:
             if "archive" in parts:
                 continue
             dirnames[:] = [d for d in dirnames if d != "archive"]
+        if not include_team:
+            # team 镜像区是 content_dir 顶层子目录(wiki/team/):根部移除阻止递归,防御性 continue
+            if rel == ".":
+                dirnames[:] = [d for d in dirnames if d != TEAM_MIRROR_SUBDIR]
+            elif rel.split(os.sep)[0] == TEAM_MIRROR_SUBDIR:
+                continue
         for fn in filenames:
             if fn.endswith(".md"):
                 yield os.path.join(dirpath, fn)
@@ -172,6 +185,21 @@ def git_fetch(root: str) -> Tuple[bool, str]:
         return r.returncode == 0, (r.stderr.strip() or "ok")
     except (subprocess.TimeoutExpired, FileNotFoundError) as e:
         return False, f"git fetch 失败: {e}"
+
+
+def git_pull(root: str) -> Tuple[bool, str]:
+    """git pull --ff-only:只快进,不制造合并提交。
+
+    用于 sync-team 同步前把团队仓本地 clone 更新到 origin 最新。团队仓是只读消费源,
+    成员本地不应有提交,故 --ff-only;若本地有偏离会失败而非乱合并,提示用户处理。
+    """
+    if not os.path.isdir(os.path.join(root, ".git")):
+        return False, "非 git 仓(无 .git),跳过 pull"
+    try:
+        r = _git(root, ["pull", "--ff-only"], timeout=60)
+        return r.returncode == 0, (r.stderr.strip() or r.stdout.strip() or "ok")
+    except (subprocess.TimeoutExpired, FileNotFoundError) as e:
+        return False, f"git pull 失败: {e}"
 
 
 def git_head_info(root: str) -> Tuple[Optional[str], Optional[str]]:
