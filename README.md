@@ -58,7 +58,9 @@ cd wiki-manage
 
 ## 三平台安装机制(预期管理)
 
-**统一走 git clone + `wiki-init`(见上「团队成员安装」),零中断、不依赖插件市场。** 这是团队主推路 —— 因为 Cursor Pro 用不了自托管插件市场,且 Claude/Codex 的 `marketplace add`/`install` 有 trust 提示会打断。各平台机制与范围:
+> ⚠️ **没有任何一条 marketplace 命令能通吃三家。** 下表「原生插件市场」一列**各家命令不同**(Claude `/plugin marketplace add ...` ≠ Codex `codex plugin marketplace add ...`),**Cursor Pro 干脆没有**。把某一家的 marketplace 命令当通用安装方式是错的。**要三平台统一,只有 `./install.sh`(Windows `install.cmd`)这一条** —— 它内部分别对接每个工具。
+
+**统一走 git clone + `./install.sh`(见上「团队成员安装」)。** 这是团队主推路 —— 因为 Cursor Pro 用不了自托管插件市场,且 Claude/Codex 的 `marketplace add`/`install` 命令各异、还有 trust 提示。各平台机制与范围:
 
 | 平台 | wiki-init 装法(主推) | 范围 | 原生插件市场(备选) |
 |---|---|---|---|
