@@ -34,10 +34,17 @@ cd wiki-manage
 .\install.cmd
 ```
 
+运行时会**交互询问两个库的位置**(回车用默认):
+
+- **个人库** — 你日常读写/入库的主库,不存在会**自动建**(默认 `~/AI/wiki`)。
+- **团队仓** — 团队知识源的本地 git clone,只读(默认 `~/AI/team-wiki`);还没 clone 会**提示你 clone**,不阻断安装(个人库已能独立工作)。
+
+装好后:
+
 - **Claude / Codex** → 自动配好(写 `~/.claude/CLAUDE.md` / `~/.codex/AGENTS.md` 规则指针 + Claude 软链 skills/命令),重启客户端即生效。
 - **Cursor** → 脚本会打印一段「User Rules」纯文本(已填好库路径);复制 → Cursor **设置 → Rules → User Rules** → 粘一次,管所有项目。**这是唯一的手动一步** —— Cursor 不允许脚本写全局规则(它没有可写的全局规则文件)。
 
-> 库路径默认自动探测 `~/AI/team-wiki` 或 `~/AI/wiki`;也可显式:`./install.sh ~/AI/team-wiki`。
+> 不想交互?按顺序给两个路径(个人库在前、团队仓在后):`./install.sh ~/AI/wiki ~/AI/team-wiki`;或用环境变量 `PERSONAL_ROOT=… TEAM_ROOT=… ./install.sh`。
 > 更新:`git pull` 后重跑 `./install.sh`(Cursor 重新粘一次 User Rules)。
 > Cursor 想用项目级规则替代全局:`./bin/wiki-init --platform cursor --write --cursor-project <项目>`。
 > 卸载 / 原生插件市场备选 / 排障:见 [docs/INSTALL.md](docs/INSTALL.md)。

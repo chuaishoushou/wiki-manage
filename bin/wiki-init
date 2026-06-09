@@ -1,16 +1,20 @@
 #!/usr/bin/env python3
 """wiki-init:团队成员一键 onboarding(跨平台,纯标准库)。
 
-为 Claude Code / Codex / Cursor 写"规则指针",告诉 AI:知识库在哪、规则真源是哪两个文件、
+为 Claude Code / Codex / Cursor 写"规则指针",告诉 AI 两个知识库在哪、规则真源是哪两个文件、
 用 wiki-cli(纯 CLI)做 protocol/检索/校验/同步、查知识直接 Read/Grep 库文件。
-知识库是本地文件,AI 直接读 + 调 CLI 即可,免去常驻进程与跨平台配置。
-CC 额外把 skill + slash 命令链接进 ~/.claude/。默认只打印(安全);--write 才落地。
+本机有两个库:① 个人库(WIKI_ROOT,日常读写主线,不存在会自动建);② 团队仓(只读知识源的
+本地 clone,用 changes/pull 看更新、sync-team 镜像进个人库)。知识库是本地文件,AI 直接读 +
+调 CLI 即可,免去常驻进程与跨平台配置。CC 额外把 skill + slash 命令链接进 ~/.claude/。
+默认只打印(安全);--write 才落地。未显式给路径且在终端运行时,交互式逐项询问两个库的位置。
 
 用法:
-  bin/wiki-init                         # 打印三家指针 + 自检
-  bin/wiki-init --wiki-root ~/AI/wiki   # 指定 wiki 根
+  bin/wiki-init                                    # 交互询问个人库/团队仓 + 打印三家指针 + 自检
+  bin/wiki-init --personal-root ~/AI/wiki --team-root ~/AI/team-wiki --write
+  bin/wiki-init --wiki-root ~/AI/wiki              # [兼容别名] --wiki-root = --personal-root
   bin/wiki-init --platform codex --write           # 写 ~/.codex/AGENTS.md 指针
   bin/wiki-init --platform cursor --cursor-project ~/proj --write   # 写 ~/proj/.cursor/rules/wiki.mdc
+  bin/wiki-init --no-input                         # 跳过交互(用默认/已给参数;CI/管道)
 """
 import argparse
 import os
@@ -24,11 +28,12 @@ CLI = os.path.join(WIKI_MANAGE, "plugins", "flux-wiki", "tools", "bin", "wiki-cl
 MARKER = "# === flux-wiki (auto by wiki-init) ==="
 
 
-def render(rel_path, wiki_root):
+def render(rel_path, wiki_root, team_root):
     with open(os.path.join(ADAPTERS, rel_path), "r", encoding="utf-8") as f:
         text = f.read()
     return (text.replace("{{WIKI_MANAGE}}", WIKI_MANAGE)
-                .replace("{{WIKI_ROOT}}", wiki_root))
+                .replace("{{WIKI_ROOT}}", wiki_root)
+                .replace("{{TEAM_ROOT}}", team_root))
 
 
 def to_user_rule(text):
@@ -87,27 +92,82 @@ def _import_repo():
         return None
 
 
-def resolve_wiki_root(arg):
+def _abspath(p):
+    return os.path.abspath(os.path.expanduser(p))
+
+
+def _interactive(no_input):
+    """是否进入交互问答:非 --no-input 且 stdin/stdout 都是 TTY。
+    selftest 等 subprocess 调用 stdin 非 TTY → False,绝不阻塞。"""
+    return (not no_input) and sys.stdin.isatty() and sys.stdout.isatty()
+
+
+def _ask_path(title, hint, default):
+    """交互式问一个路径;回车用默认。仅在 _interactive() 为真时调用。"""
+    try:
+        s = input(f"\n{title}\n  {hint}\n  回车用默认 [{default}]\n  > ").strip()
+    except EOFError:
+        return default
+    return _abspath(s) if s else default
+
+
+def resolve_personal(arg, repo, interactive):
+    """个人库(WIKI_ROOT/日常读写主库)。优先级:
+    --personal-root/--wiki-root > $WIKI_ROOT > 交互询问 > 默认 ~/AI/wiki。"""
+    default = repo.PERSONAL_WIKI_FALLBACK if repo is not None else _abspath("~/AI/wiki")
     if arg:
-        return os.path.abspath(os.path.expanduser(arg))
+        return _abspath(arg)
     env = os.environ.get("WIKI_ROOT")
     if env:
-        return os.path.abspath(os.path.expanduser(env))
-    # env 未设时优先约定团队路径,避免兜底到维护者个人库。
-    # 合法根判定复用 CLI 的 repo._is_root(与 find_wiki_root_verbose 对齐:
-    # 仅"含 ROOT_MARKERS 标记文件的目录"才算 wiki 根,而非任意存在的目录);
-    # 库未就位导入失败时回退 os.path.isdir,保证 wiki-init 仍可独立运行。
-    repo = _import_repo()
+        return _abspath(env)
+    if interactive:
+        return _ask_path("① 个人库目录(你日常读写/入库的主库,不存在会自动创建)",
+                         "团队知识会镜像同步进它的 team/ 区;通常 ~/AI/wiki", default)
+    return default
+
+
+def resolve_team(arg, repo, interactive):
+    """团队仓本地 clone(只读知识源)。优先级:
+    --team-root > $TEAM_ROOT > 交互询问 > 默认 ~/AI/team-wiki。"""
+    default = repo.TEAM_WIKI_FALLBACK if repo is not None else _abspath("~/AI/team-wiki")
+    if arg:
+        return _abspath(arg)
+    env = os.environ.get("TEAM_ROOT")
+    if env:
+        return _abspath(env)
+    if interactive:
+        return _ask_path("② 团队仓目录(团队知识源的本地 git clone,只读)",
+                         "用于 changes 看更新 / sync-team 镜像进个人库;通常 ~/AI/team-wiki", default)
+    return default
+
+
+def ensure_personal(personal, repo):
+    """个人库不存在/未初始化 → wiki-cli init 自动建(幂等,绝不覆盖已有页)。返回是否就绪。"""
     is_root = repo._is_root if repo is not None else os.path.isdir
-    # 兜底路径复用 repo 的单一真源常量(与 find_wiki_root_verbose 的 team→personal 顺序一致,
-    # 避免两处分叉);repo 导入失败时回退到等价字符串,保证 wiki-init 仍可独立运行。
-    team = repo.TEAM_WIKI_FALLBACK if repo is not None else os.path.expanduser("~/AI/team-wiki")
-    personal = repo.PERSONAL_WIKI_FALLBACK if repo is not None else os.path.expanduser("~/AI/wiki")
-    if is_root(team):
-        return team
     if is_root(personal):
-        return personal
-    return personal
+        print(f"  ✅ 个人库已就位:{personal}")
+        return True
+    print(f"  个人库尚未初始化,自动建库(幂等):{personal}")
+    rc = subprocess.call([sys.executable, CLI, "init", personal])
+    ok = rc == 0
+    print(f"  {'✅ 个人库已创建' if ok else '❌ 个人库创建失败,请手动 wiki-cli init'}:{personal}")
+    return ok
+
+
+def check_team(team, personal, repo):
+    """团队仓是只读知识源:存在则确认;不存在则提示 clone(不阻断——个人库已可独立工作)。"""
+    is_root = repo._is_root if repo is not None else os.path.isdir
+    if is_root(team):
+        print(f"  ✅ 团队仓已就位:{team}")
+        return True
+    if os.path.isdir(team):
+        print(f"  ⚠ 团队仓目录存在但还不是有效 wiki 根(缺 AGENTS.md/_routes.md/_vocabulary.md):{team}")
+    else:
+        print(f"  ⚠ 团队仓尚未 clone 到:{team}")
+    print(f"    它是独立 git 仓(团队知识源),需你自行 clone;clone 后即可看更新/同步进个人库:")
+    print(f"      git clone <团队仓地址> \"{team}\"")
+    print(f"      python3 {CLI} --root \"{personal}\" sync-team --team \"{team}\"")
+    return False
 
 
 def banner(title):
@@ -148,11 +208,11 @@ def _link_or_copy(src, dst, label):
         print(f"  ✅ 复制 {label}(符号链接不可用→已复制;以后 git pull 后需重跑 wiki-init 更新)")
 
 
-def do_cc(wiki_root, write):
+def do_cc(wiki_root, team_root, write):
     banner("Claude Code")
     skills_src = os.path.join(WIKI_MANAGE, "plugins", "flux-wiki", "skills")
     cmds_src = os.path.join(WIKI_MANAGE, "plugins", "flux-wiki", "commands")
-    ptr = render("cc/CLAUDE.md.pointer", wiki_root)
+    ptr = render("cc/CLAUDE.md.pointer", wiki_root, team_root)
     if not write:
         print("① 写规则指针到 ~/.claude/CLAUDE.md(告诉 AI:库在哪 / 用 wiki-cli / 直接读库文件):\n")
         print(ptr)
@@ -182,9 +242,9 @@ def do_cc(wiki_root, write):
     print("  重启 Claude Code 生效")
 
 
-def do_codex(wiki_root, write):
+def do_codex(wiki_root, team_root, write):
     banner("Codex")
-    ptr = render("codex/AGENTS.md.pointer", wiki_root)
+    ptr = render("codex/AGENTS.md.pointer", wiki_root, team_root)
     if write:
         _append_with_marker(os.path.expanduser("~/.codex/AGENTS.md"), ptr)
     else:
@@ -193,9 +253,9 @@ def do_codex(wiki_root, write):
         print("(加 --write 自动落地)")
 
 
-def do_cursor(wiki_root, write, project):
+def do_cursor(wiki_root, team_root, write, project):
     banner("Cursor")
-    rule = render("cursor/wiki.mdc", wiki_root)
+    rule = render("cursor/wiki.mdc", wiki_root, team_root)
     # 可选:--cursor-project 写项目级规则(仅该项目);否则默认走全局 User Rules
     if write and project:
         proj = os.path.abspath(os.path.expanduser(project))
@@ -226,37 +286,56 @@ def self_check(wiki_root):
 
 
 def main():
-    p = argparse.ArgumentParser(description="团队 wiki onboarding 生成器(写规则指针)+ 自检")
+    p = argparse.ArgumentParser(description="团队 wiki onboarding 生成器(写双库规则指针)+ 自检")
     p.add_argument("--platform", choices=["cc", "codex", "cursor", "all"], default="all")
-    p.add_argument("--wiki-root", help="wiki 根(默认 $WIKI_ROOT 或 ~/AI/team-wiki 或 ~/AI/wiki)")
+    p.add_argument("--personal-root", help="个人库根(日常读写主库;默认 $WIKI_ROOT 或 ~/AI/wiki;不存在会自动建)")
+    p.add_argument("--team-root", help="团队仓本地 clone(只读知识源;默认 $TEAM_ROOT 或 ~/AI/team-wiki)")
+    p.add_argument("--wiki-root", help="[兼容别名] 等价 --personal-root")
     p.add_argument("--write", action="store_true", help="真正写入文件(默认只打印)")
+    p.add_argument("--no-input", action="store_true", help="跳过交互提问(用默认/已给参数;CI/管道用)")
     p.add_argument("--cursor-project", help="Cursor 项目根(--platform cursor --write 时需要)")
     args = p.parse_args()
 
-    wiki_root = resolve_wiki_root(args.wiki_root)
-    print(f"wiki-manage: {WIKI_MANAGE}")
-    print(f"wiki 根    : {wiki_root}")
+    repo = _import_repo()
+    interactive = _interactive(args.no_input)
+    # 个人库(主)与团队仓(源)两个位置:显式参数 > 环境变量 > 交互询问 > 约定默认
+    personal = resolve_personal(args.personal_root or args.wiki_root, repo, interactive)
+    team = resolve_team(args.team_root, repo, interactive)
+
+    print(f"\nwiki-manage: {WIKI_MANAGE}")
+    print(f"个人库(主) : {personal}")
+    print(f"团队仓(源) : {team}")
     print(f"模式       : {'写入' if args.write else '仅打印(加 --write 落地)'}")
+
+    # 库就位:--write 时个人库缺则自动建(幂等);团队仓缺则提示 clone(不阻断)。
+    # 顺序在写指针之前——保证指针指向的个人库一定是有效库,失败也不留"指向空库"的脏指针。
+    banner("知识库就位")
+    if args.write:
+        ensure_personal(personal, repo)
+    else:
+        is_root = repo._is_root if repo is not None else os.path.isdir
+        print(f"  个人库:{'已就位' if is_root(personal) else '尚未初始化(加 --write 会自动建)'} {personal}")
+    check_team(team, personal, repo)
 
     # platform=all 时自动探测本机装了哪些工具,只配在装的(显式指定单平台则无条件执行)
     auto = args.platform == "all"
     if args.platform in ("cc", "all"):
         if not auto or has_claude():
-            do_cc(wiki_root, args.write)
+            do_cc(personal, team, args.write)
         else:
             print("\n— Claude Code:未检测到 ~/.claude,跳过")
     if args.platform in ("codex", "all"):
         if not auto or has_codex():
-            do_codex(wiki_root, args.write)
+            do_codex(personal, team, args.write)
         else:
             print("— Codex:未检测到,跳过")
     if args.platform in ("cursor", "all"):
         if not auto or has_cursor():
-            do_cursor(wiki_root, args.write, args.cursor_project)
+            do_cursor(personal, team, args.write, args.cursor_project)
         else:
             print("— Cursor:未检测到,跳过")
 
-    ok = self_check(wiki_root)
+    ok = self_check(personal)
     sys.exit(0 if ok else 1)
 
 

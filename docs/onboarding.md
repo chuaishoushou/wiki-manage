@@ -2,6 +2,7 @@
 
 > 按角色分轨。**大多数人是只读成员,先看下面第一节就够了。** 一致性靠规则指针 + wiki-cli(AI 直接 Read/Grep 库文件 + CLI 检索/校验)。
 > 完整安装步骤见 [INSTALL.md](INSTALL.md);本页是分角色的最短路径。
+> **最快(推荐)**:`git clone …/wiki-manage && cd wiki-manage && ./install.sh` 会交互配好**个人库 + 团队仓**两个位置并三平台落地(见 [README](../README.md))。本页给的是按角色拆开的细分命令——其中 `--wiki-root` 现为 `--personal-root` 的兼容别名(= 个人库),只读成员可把它直接指向团队库单库直连。
 
 ---
 

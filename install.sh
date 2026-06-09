@@ -4,13 +4,18 @@
 #
 #   git clone https://github.com/chuaishoushou/wiki-manage && cd wiki-manage && ./install.sh
 #
+# 运行时会(在终端里)交互询问两个库的位置:
+#   ① 个人库 —— 你日常读写/入库的主库(不存在会自动建;默认 ~/AI/wiki)
+#   ② 团队仓 —— 团队知识源的本地 git clone(只读;默认 ~/AI/team-wiki;还没 clone 会提示你 clone)
+#
 # 脚本会自动认出本机装了 Claude Code / Codex / Cursor,挨个配好:
 #   - Claude Code : 写 ~/.claude/CLAUDE.md 指针 + 软链 skills/命令(全局,自动)
 #   - Codex       : 写 ~/.codex/AGENTS.md 指针(全局,自动)
 #   - Cursor      : 打印一段规则文本,你粘进 设置→Rules→User Rules 一次(全局,手动一步)
 #
-# 库路径:默认自动探测 ~/AI/team-wiki 或 ~/AI/wiki;也可显式给:
-#   ./install.sh ~/AI/team-wiki      或      WIKI_ROOT=/path ./install.sh
+# 不想交互?直接按顺序给路径(个人库 团队仓),或用环境变量:
+#   ./install.sh ~/AI/wiki ~/AI/team-wiki
+#   PERSONAL_ROOT=~/AI/wiki TEAM_ROOT=~/AI/team-wiki ./install.sh
 #
 set -uo pipefail
 
@@ -24,11 +29,20 @@ if ! command -v "$PY" >/dev/null 2>&1; then
   exit 1
 fi
 
+# 两个库位置:位置参数 $1=个人库 $2=团队仓;或环境变量 PERSONAL_ROOT / TEAM_ROOT
+# (兼容旧 WIKI_ROOT=个人库)。都不给时,wiki-init 在终端里逐项交互询问(回车用默认)。
 ARGS=(--platform all --write)
 if [ "${1:-}" != "" ]; then
-  ARGS+=(--wiki-root "$1")
+  ARGS+=(--personal-root "$1")
+elif [ "${PERSONAL_ROOT:-}" != "" ]; then
+  ARGS+=(--personal-root "$PERSONAL_ROOT")
 elif [ "${WIKI_ROOT:-}" != "" ]; then
-  ARGS+=(--wiki-root "$WIKI_ROOT")
+  ARGS+=(--personal-root "$WIKI_ROOT")
+fi
+if [ "${2:-}" != "" ]; then
+  ARGS+=(--team-root "$2")
+elif [ "${TEAM_ROOT:-}" != "" ]; then
+  ARGS+=(--team-root "$TEAM_ROOT")
 fi
 
 exec "$PY" "$HERE/bin/wiki-init" "${ARGS[@]}"

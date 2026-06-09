@@ -6,11 +6,15 @@ REM    git clone https://github.com/chuaishoushou/wiki-manage
 REM    cd wiki-manage
 REM    install.cmd
 REM
+REM  运行时会交互询问两个库的位置:
+REM    (1) 个人库 —— 日常读写主库(不存在会自动建;默认 %USERPROFILE%\AI\wiki)
+REM    (2) 团队仓 —— 团队知识源本地 clone(只读;默认 %USERPROFILE%\AI\team-wiki)
 REM  自动探测本机的 Claude / Codex / Cursor 并各自配好。
 REM  Cursor 会打印一段 User Rules 文本,粘进 设置-Rules-User Rules 一次。
 REM
-REM  库路径:默认自动探测 %USERPROFILE%\AI\team-wiki 或 \AI\wiki;
-REM  也可显式:install.cmd D:\path\to\team-wiki   或   set WIKI_ROOT=...
+REM  不想交互?按顺序给路径(个人库 团队仓),或用环境变量:
+REM    install.cmd D:\AI\wiki D:\AI\team-wiki
+REM    set PERSONAL_ROOT=... ^& set TEAM_ROOT=... ^& install.cmd
 REM ============================================================
 setlocal
 set "HERE=%~dp0"
@@ -24,13 +28,21 @@ if not defined PY (
   exit /b 1
 )
 
-REM 选库路径:命令行参数优先，其次 WIKI_ROOT 环境变量，否则交给 wiki-init 自动探测
+REM 两个库位置:%1=个人库 %2=团队仓;或环境变量 PERSONAL_ROOT / TEAM_ROOT(兼容旧 WIKI_ROOT=个人库)。
+REM 都不给时,wiki-init 在终端里逐项交互询问(回车用默认)。
+set "ARGS=--platform all --write"
 if not "%~1"=="" (
-  %PY% "%HERE%bin\wiki-init" --platform all --write --wiki-root "%~1"
+  set ARGS=%ARGS% --personal-root "%~1"
+) else if defined PERSONAL_ROOT (
+  set ARGS=%ARGS% --personal-root "%PERSONAL_ROOT%"
 ) else if defined WIKI_ROOT (
-  %PY% "%HERE%bin\wiki-init" --platform all --write --wiki-root "%WIKI_ROOT%"
-) else (
-  %PY% "%HERE%bin\wiki-init" --platform all --write
+  set ARGS=%ARGS% --personal-root "%WIKI_ROOT%"
 )
+if not "%~2"=="" (
+  set ARGS=%ARGS% --team-root "%~2"
+) else if defined TEAM_ROOT (
+  set ARGS=%ARGS% --team-root "%TEAM_ROOT%"
+)
+%PY% "%HERE%bin\wiki-init" %ARGS%
 
 endlocal

@@ -1,7 +1,7 @@
 # 安装(团队成员上手 · 三平台)
 
-> **一句话**:`team-wiki`(知识)+ `wiki-manage`(工具)两个仓都 clone 到 `~/AI/` 下,设好库的位置,按你的平台跑一条命令。
-> **约定路径**:把团队知识库 clone 到 **`~/AI/team-wiki`**。只要放在这个约定位置,即使没设环境变量、即使从 GUI/Desktop 启动,也能自动连上团队库(工具内置了对该路径的兜底)。
+> **一句话**:clone 工具仓 `wiki-manage`,跑 `./install.sh` —— 它会交互配好**两个库**:个人库(日常读写主线,默认 `~/AI/wiki`,不存在自动建)+ 团队仓(团队知识源的只读 clone,默认 `~/AI/team-wiki`)。
+> **约定路径**:个人库 `~/AI/wiki`、团队仓 `~/AI/team-wiki`。放在约定位置时,即使没设环境变量、从 GUI/Desktop 启动也能自动兜底连上(工具内置对约定路径的兜底)。
 
 ---
 
@@ -18,23 +18,24 @@ claude --version      # 仅 Claude Code 用户需要(走插件市场或 wiki-ini
 
 ---
 
-## 第 1 步:clone 两个仓 + 设库位置(所有平台通用,顺序不能反)
+## 第 1 步:clone 工具仓 + clone 团队仓(个人库无需手动建)
 
 ```bash
-git clone https://github.com/chuaishoushou/team-wiki.git   ~/AI/team-wiki      # 团队知识(约定路径,所有路径都要)
 git clone https://github.com/chuaishoushou/wiki-manage.git ~/AI/wiki-manage   # 工具/插件(必需:wiki-init 与 wiki-cli 都在此仓)
-echo 'export WIKI_ROOT="$HOME/AI/team-wiki"' >> ~/.zshrc && export WIKI_ROOT="$HOME/AI/team-wiki"
-# bash 用户把 ~/.zshrc 换成 ~/.bashrc;Windows PowerShell 用 setx WIKI_ROOT "%USERPROFILE%\AI\team-wiki"
+git clone https://github.com/chuaishoushou/team-wiki.git   ~/AI/team-wiki     # 团队知识(只读源;约定路径,可选先 clone——装时不存在会提示你 clone)
+# 个人库不用手动建:第 2 步的 ./install.sh 会在它不存在时自动 wiki-cli init 建好(默认 ~/AI/wiki)。
 ```
 
-> ⚠️ 一定先 clone `team-wiki` 再跑第 2 步;反过来会因为"库还不存在"而自检失败。
-> `WIKI_ROOT` 是第一道防线(终端启动时生效);把库放在约定路径 `~/AI/team-wiki` 是第二道网(GUI 启动丢环境变量时兜底)。两者都做最稳。
+> ✅ 新版 `./install.sh` 不再硬性要求"先 clone 团队仓":个人库会自动建,团队仓缺失只提示不阻断安装。先 clone 团队仓更顺(装完即可 sync),但不是硬前置。
+> 库位置由第 2 步的 `./install.sh` 交互询问(回车用默认);也可 `export WIKI_ROOT=个人库` + 把团队仓放约定路径 `~/AI/team-wiki` 作 GUI 启动兜底。
 
 ---
 
 ## 第 2 步:按平台安装
 
-> **最快:一条命令搞定全部。** 在 `wiki-manage` 目录里跑 —— macOS/Linux: **`./install.sh`**;Windows: **`.\install.cmd`**(cmd 里 `install.cmd` 亦可)。自动探测本机的 Claude / Codex / Cursor 并配好(Cursor 会打印 User Rules 块供你粘进 设置→Rules)。下面是各平台的细节/手动版,排障、只装单个工具、或想走插件市场时看。
+> **最快:一条命令搞定全部。** 在 `wiki-manage` 目录里跑 —— macOS/Linux: **`./install.sh`**;Windows: **`.\install.cmd`**(cmd 里 `install.cmd` 亦可)。它会**交互询问个人库 + 团队仓两个位置**(回车用默认;个人库不存在自动建、团队仓不存在提示 clone),再自动探测本机的 Claude / Codex / Cursor 并配好(Cursor 会打印 User Rules 块供你粘进 设置→Rules)。下面是各平台的细节/手动版,排障、只装单个工具、或想走插件市场时看。
+>
+> 📌 下面各平台的单平台手动命令里,`--wiki-root` 现为 `--personal-root` 的**兼容别名**(= 个人库);要显式双库,用 `--personal-root <个人库> --team-root <团队仓>`,或直接用上面的 `./install.sh` 交互配。只读成员只想单库直连团队库时,`--wiki-root ~/AI/team-wiki` 仍照旧可用。
 
 ### Claude Code —— 主推 wiki-init(零中断),插件市场为备选
 
