@@ -1,20 +1,6 @@
 ---
-description: 团队 LLM Wiki 治理规则。涉及 wiki 查询/入库/同步时 @-mention 本规则;知识库是本地文件,直接读 + 用 wiki-cli。
+description: 个人知识库(flux-wiki)操作规则。涉及知识库查询/记录/团队知识学习时 @-mention 本规则。
 alwaysApply: false
 ---
 
-# 团队 LLM Wiki(Cursor 适配)
-
-> 占位符由 bin/wiki-init 在安装时替换。本规则只作 @-mention 便利;知识库是本地 markdown,**直接读 + 调 wiki-cli**。
-
-本项目可访问两个 LLM Wiki:**个人库** `{{WIKI_ROOT}}`(日常读写主线)与**团队仓** `{{TEAM_ROOT}}`(只读知识源,团队仓本地 clone)。
-
-下文 `wiki-cli` 指 `python3 {{WIKI_MANAGE}}/plugins/flux-wiki/tools/bin/wiki-cli`。命令正文沿用 wiki-cli 简写。
-
-涉及 wiki 时:
-1. 协议与分类闭集:读 `{{WIKI_ROOT}}/AGENTS.md` + `{{WIKI_ROOT}}/_vocabulary.md`;或终端 `wiki-cli --root "{{WIKI_ROOT}}" protocol`。
-2. 查知识:直接 Grep/Read `{{WIKI_ROOT}}` 下的 `.md`(含团队镜像 `team/` 区);或 `wiki-cli --root "{{WIKI_ROOT}}" search/route/get`,引用页面路径。也可直接查团队仓 `{{TEAM_ROOT}}`。
-3. 入库(仅维护者):`wiki-cli suggest` → 补 frontmatter → `wiki-cli validate` 通过后落盘个人库;低置信入 `staging/`。
-4. 看团队仓更新 / 同步:`wiki-cli --root "{{TEAM_ROOT}}" changes`(只读);`wiki-cli --root "{{WIKI_ROOT}}" sync-team --team "{{TEAM_ROOT}}"` 镜像进个人库。
-
-wiki-cli:`{{WIKI_MANAGE}}/plugins/flux-wiki/tools/bin/wiki-cli`。规则真源:`{{WIKI_ROOT}}/AGENTS.md` + `{{WIKI_ROOT}}/_vocabulary.md`。
+{{BODY}}

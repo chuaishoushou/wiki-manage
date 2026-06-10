@@ -6,14 +6,8 @@ REM    git clone https://github.com/chuaishoushou/wiki-manage.git %USERPROFILE%\
 REM    cd %USERPROFILE%\AI\wiki-manage
 REM    .\install.cmd
 REM
-REM  人工跑(无参):交互逐项询问 (1) 个人库 (2) 团队仓 的位置(回车用默认),
-REM  写完三平台规则指针后,再问你是否现在初始化个人库(默认否)。
-REM  Cursor 会打印一段 User Rules 文本,粘进 设置-Rules-User Rules 一次。
-REM
-REM  AI 助手勿裸跑本脚本(stdin 非终端,问不到用户)。见 README『给 AI 助手的执行指令』:
-REM  先在对话里问用户,再用参数直接调 bin\wiki-init。
-REM
-REM  透传:本脚本把所有参数原样转交 bin\wiki-init;未给 --platform 补 all、未给 --write 补 --write。
+REM  人和 AI 同一条命令:终端里逐项确认路径(回车用默认);
+REM  非终端直接用默认/参数。可选参数原样透传 bin\wiki-init。
 REM ============================================================
 setlocal
 set "HERE=%~dp0"
@@ -27,10 +21,5 @@ if not defined PY (
   exit /b 1
 )
 
-REM 智能透传:缺 --platform 补 all、缺 --write 补 --write,其余参数原样传给 wiki-init。
-set "EXTRA="
-echo %* | findstr /C:"--platform" >nul || set "EXTRA=%EXTRA% --platform all"
-echo %* | findstr /C:"--write" >nul || set "EXTRA=%EXTRA% --write"
-
-%PY% "%HERE%bin\wiki-init"%EXTRA% %*
+%PY% "%HERE%bin\wiki-init" %*
 exit /b %ERRORLEVEL%

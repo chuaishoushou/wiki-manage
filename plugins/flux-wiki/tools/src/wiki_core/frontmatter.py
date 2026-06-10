@@ -96,25 +96,3 @@ def read_page(path: str) -> Tuple[Dict[str, Any], str, bool]:
     with open(path, "r", encoding="utf-8") as f:
         text = f.read()
     return parse(text)
-
-
-def extract_json_block(text: str) -> str | None:
-    """从 markdown 中抽取第一个 json 代码围栏的内容(供 _vocabulary.md 解析)。
-
-    只认"真围栏":marker 后(去空白)紧跟换行;避免误匹配散文里内联提到的同名字样。
-    """
-    marker = "```json"
-    pos = 0
-    while True:
-        start = text.find(marker, pos)
-        if start == -1:
-            return None
-        after = start + len(marker)
-        # marker 之后到行尾只能是空白,才算真围栏起始
-        line_end = text.find("\n", after)
-        if line_end != -1 and text[after:line_end].strip() == "":
-            end = text.find("```", line_end)
-            if end == -1:
-                return None
-            return text[line_end + 1:end].strip()
-        pos = after

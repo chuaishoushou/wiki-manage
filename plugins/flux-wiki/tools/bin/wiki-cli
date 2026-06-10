@@ -2,14 +2,18 @@
 """wiki-cli 可执行 wrapper:把 tools/src 加入 sys.path 后调用 wiki_core.cli.main。
 
 用法:
-  wiki-cli protocol
+  wiki-cli status
   wiki-cli search "电子围栏"
-  wiki-cli lint --out revisions/2026-06-07-lint.md
-  wiki-cli scan --out docs/security-audit.md
-  wiki-cli suggest "T0119 入园预约改造笔记"
+  wiki-cli lint --out .wiki/reports/lint.md
+  wiki-cli learn --pull
 """
 import os
 import sys
+
+# Windows 管道/重定向下 stdout 回退本地代码页(GBK)会让 ✅ 等字符报错,强制 UTF-8
+for _stream in (sys.stdout, sys.stderr):
+    if hasattr(_stream, "reconfigure"):
+        _stream.reconfigure(encoding="utf-8", errors="replace")
 
 _SRC = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "src")
 sys.path.insert(0, os.path.abspath(_SRC))

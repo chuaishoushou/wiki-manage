@@ -1,73 +1,28 @@
 ---
 name: wiki-ingest
-description: 把资料按统一规则 ingest 进团队 LLM Wiki。当用户要"记一下/入库/沉淀/收录"知识、给出外部资料(docx/pdf/md/链接)、或说"这次踩坑记到 wiki"时使用。先过敏感度闸与受控词表分类决策树,低置信入 staging。仅维护者写入。
-disable-model-invocation: true
+description: 把知识记进个人知识库。当用户要"记一下/入库/沉淀/收录"知识、给出外部资料(docx/pdf/md/链接)、或说"这次踩坑记到 wiki"时使用。定主题落 domains/,拿不准放 inbox/,写完记台账。
 allowed-tools: Read, Grep, Glob, Write, Edit, Bash(git:*), Bash(python3:*)
 ---
 
-# wiki-ingest:统一规则入库(重流程)
+# wiki-ingest:记知识进个人库
 
-> 调用约定:下文 `wiki-cli` 均指 `python3 "${CLAUDE_PLUGIN_ROOT:-${CURSOR_PLUGIN_ROOT:-${PLUGIN_ROOT}}}/tools/bin/wiki-cli"`(插件根变量:CC/Codex=CLAUDE_PLUGIN_ROOT,Cursor=CURSOR_PLUGIN_ROOT);命令正文沿用 wiki-cli 简写。
+> 约定:`wiki-cli` = `python3 "{{WIKI_CLI}}"`;个人库 = `{{WIKI_ROOT}}`。
+> 规则真源是 `{{WIKI_ROOT}}/AGENTS.md`,有分歧以它为准。
 
-> ⚠️ 写操作。规则真源是团队仓 `AGENTS.md` + `_vocabulary.md`,本 skill 只是把流程固化成步骤,**不复制规则正文**。任何分歧以 AGENTS.md / _vocabulary.md 为准。
-> 跨平台:本工作流(正文)三家通用。检索/校验/分类用 `wiki-cli` 子命令,查知识也可直接 Read/Grep 库里的 `.md` 文件;三平台靠**插件**(或 `wiki-init` 写的规则指针——CC: `~/.claude/CLAUDE.md`、Codex: `~/.codex/AGENTS.md`、Cursor: `.cursor/rules/wiki.mdc`)告诉 AI 库位置与这套流程。
->
-> **这是"重流程",用于把新原始资料消化进团队仓(SSOT)。** 如果只是【归属已知的简单一页】(尤其个人库),走轻量路径即可:`wiki-cli new <type> <slug> --domain <d>` 一条命令生成合规页骨架,填正文即可,不必跑下面整套。仓库模型见 `docs/repos-model.md`。
+## 流程(轻量,通常 4 步)
 
-## 第 0 步(强制):拉协议 + 自检新鲜度
+1. **找落点**:看 `{{WIKI_ROOT}}/domains/` 现有主题(目录即主题),判断归属。
+   - 命中已有主题 → 落 `domains/<主题>/`(主题内子目录自由;常用 concepts/ queries/ sources/ modules/)。
+   - 是新主题 → **直接建目录**,不需要登记审批;顺手在 `overview.md` 加一行导航。
+   - 拿不准 → 放 `inbox/`,留给用户日后定。
+2. **先查重**:`wiki-cli search "<关键词>"`(或 Grep)。已有相关页 → **优先更新整合**,不新建重复页。
+3. **写盘**:直接 Write,或 `wiki-cli new <type> <slug> --domain <主题>` 生成骨架再填正文。
+   - 文件名小写 kebab-case;frontmatter 推荐带 `tags / status / date_created`(非强制)。
+   - 外部资料:原件存 `raw/`(只读区,之后不改),消化后的摘要/要点写进 domains/。
+4. **记台账**:`{{WIKI_ROOT}}/log.md` 追加一行:`## [YYYY-MM-DD] ingest | <标题>` + 涉及页面路径。
+   重要页可在 `_routes.md` 登记一个触发关键词(可选,登记后 AI 检索更准)。
 
-跑 `wiki-cli protocol`。
-- 若返回 `version_ok=false` → 工具落后于仓库协议,先升级工具仓再继续,**不要硬写**。
-- 若 staleness 显示落后 origin → 提示用户先 `/wiki-sync` 或 `git pull`,避免基于旧库分类。
+## 红线
 
-## 第 1 步(强制):敏感度闸 —— 先于分类
-
-跑 `wiki-cli scan --text "<资料文本>"`(对尚未落盘的资料做敏感度预检)。命中**客户真名 / 凭证 / 攻击面关键词**时:
-- frontmatter `sensitivity` 默认取建议值(通常 `maintainer-only`),需用户显式下调才放宽。
-- 命中凭证/漏洞细节的:`maintainer-only` 或 `exclude`;**绝不让它进会 publish 的页**。
-- `log.md` / revisions 摘要里**不要复述**凭证或注入细节。
-
-## 第 2 步:落位建议(确定性)
-
-跑 `wiki-cli suggest`(传摘要),拿到 `domain / page_type / slug / confidence`。这是确定性算法,任何机器同结果——把它当建议,最终由第 4 步校验闸拍板。
-
-## 第 3 步:分类决策树
-
-```
-confidence = high 且命中某 domain → 落 wiki/domains/<domain>/<page_type>s/<slug>.md
-                                     (module 类落 modules/<slug>/README.md)
-跨 2+ domain 复用                  → 按 _vocabulary.md global_promotion 判 global/ 还是 domain-local
-confidence = low / 歧义 / 平手     → 写 wiki/staging/domain-review/<slug>.md,停,等该 domain owner 裁决
-                                     ★ 绝不擅自进 active 区
-```
-- page_type 取自闭集(source/entity/concept/query/module)。
-- slug 用 kebab-case;模块用 `<module-id>-<英文名>`。
-- 模块落位:模块目录内主文件 `README.md`;模块任务流水另见团队 `AGENTS.md` 模块维护约定。
-- 已存在相关页 → **优先重写整合**,不要新建重复(先 `wiki-cli search` 找相似,或直接 Grep 库文件)。
-
-## 第 4 步(强制):写前校验
-
-补齐 frontmatter 必填集(见 `_vocabulary.md` `required_frontmatter`):
-`tags / page_type / domain / shared_scope / sensitivity / status / date_created`(低/中置信另需 `domain_reason`)。
-
-把第 2 步 suggest 得到的 confidence 写入 frontmatter 字段 `domain_confidence`;为 low/medium 时必须同时填 `domain_reason`(否则 validate 报 missing-conditional)。
-
-落盘前跑 `wiki-cli validate <path>`。**有 error 不予落盘**,先补齐。
-- tags 必须取自白名单,命中同义词先归并;禁止用 tag 表达状态。
-
-## 第 5 步:落盘 + 连通 + 审计
-
-> 本步全部产物(目标页、`_routes.md` 追加、`log.md` 追加、revisions 文件)均由 AI 用 Write/Edit 直接写盘,wiki-cli 不提供这些写操作。
-
-1. `Write` 目标文件(直接用 file tools 写库里的 `.md`)。
-2. 新页 → 在 `_routes.md` 追加关键词路由(否则检索不可达);更新所属 `overview.md` 使可达。
-3. 追加 `log.md`:`## [YYYY-MM-DD] ingest | <标题>` + 改动摘要 + touched pages 链接。
-4. 生成 `revisions/<YYYY-MM-DD>-<HHMMSS>-ingest.md`(含 domain/confidence/sensitivity/touched 页)。
-
-## 第 6 步:staging 晋升(仅 owner)
-
-staging 页晋升到 active **只能由该 domain 在 `_vocabulary.md` 登记的 owner 执行**;owner=UNASSIGNED 的 domain,新源滞留 staging。被拒的归档到 `archive/rejected-<date>/` 并写 `reject_reason`。
-
-## 删除 = 归档
-
-任何 `.md` 删除必须 `mv` 到 `archive/<分类>-<YYYY-MM-DD>/`,**绝不 `rm`**(敏感泄露除外,见 AGENTS.md)。
+- `raw/` 只进不改;**删除任何页 = mv 到 `archive/<YYYY-MM-DD>/`,绝不 `rm`**。
+- 写完如改动较多,可 `wiki-cli lint` 自检一遍(只报告,无侵入)。

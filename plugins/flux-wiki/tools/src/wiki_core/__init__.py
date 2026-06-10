@@ -1,15 +1,16 @@
-"""wiki_core —— LLM Wiki 治理工具内核(纯 Python 标准库)。
+"""wiki_core —— 轻量个人知识库工具内核(纯 Python 标准库)。
 
-只有 CLI 入口(bin/wiki-cli)使用本包,
-确保"同一份确定性逻辑一个入口",AI 直接读文件 + 调 wiki-cli,行为可复现。
+唯一入口是 CLI(bin/wiki-cli)。AI 直接 Read/Grep 库文件查知识,
+用 CLI 做确定性操作:建库(init)/加页(new)/检索(search)/体检(lint)/
+团队增量学习数据(learn)/状态(status)。
 
 设计约束:
-- 只用标准库(纯 API / 离线环境无法 pip install)。
-- 只读内核(protocol/search/route/get/validate/lint/suggest/scan/changes)= 检索 + 计算 + 建议;
-  写子命令(init/scaffold、new、sync-team、publish)由 CLI 直接落盘(os.makedirs+open / shutil.copy2)。
+- 只用标准库(离线环境无法 pip install)。
+- 读子命令(search/lint/status/learn 不带 --mark)只读;
+  写子命令(init/new/learn --mark)由 CLI 直接落盘。
 """
 
-# 本工具支持的协议版本。与仓库 _vocabulary.md / AGENTS.md 的 protocol_version 比对。
-SUPPORTED_PROTOCOL_VERSION = 2
+# 本工具支持的协议版本(v3 = 扁平结构:domains/ 直接在库根下)。
+SUPPORTED_PROTOCOL_VERSION = 3
 
 __all__ = ["SUPPORTED_PROTOCOL_VERSION"]

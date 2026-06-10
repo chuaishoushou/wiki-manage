@@ -1,36 +1,20 @@
 ---
 name: wiki-lint
-description: 给团队 LLM Wiki 做体检/清理,并做 git init 前的安全审计。当用户说"检查 wiki/体检/清理/lint/安全扫描/发布前检查"时使用。跑确定性检查出结构化报告,修复需 owner 确认。
-disable-model-invocation: true
+description: 给个人知识库做体检/清理。当用户说"检查 wiki/体检/清理/lint/知识库有没有问题"时使用。跑确定性检查出结构化报告,修复需用户确认。
 allowed-tools: Read, Grep, Glob, Bash(git:*), Bash(python3:*), Write
 ---
 
-# wiki-lint:体检 / 安全审计
+# wiki-lint:体检
 
-> 调用约定:下文 `wiki-cli` 均指 `python3 "${CLAUDE_PLUGIN_ROOT:-${CURSOR_PLUGIN_ROOT:-${PLUGIN_ROOT}}}/tools/bin/wiki-cli"`(插件根变量:CC/Codex=CLAUDE_PLUGIN_ROOT,Cursor=CURSOR_PLUGIN_ROOT);命令正文沿用 wiki-cli 简写。
+> 约定:`wiki-cli` = `python3 "{{WIKI_CLI}}"`;个人库 = `{{WIKI_ROOT}}`。
+> 检查是确定性的(同一库任何机器同结果);AI 负责判读 + 给修复建议;**动手修复前需用户确认**。
 
-> 确定性检查(同一仓任何机器同结果),AI 只判读 + 给修复建议;**修复(删除/移动)需该 domain owner 确认**。检查全部走 `wiki-cli` 子命令。
+## 流程
 
-## 体检(routine)
-
-跑 `wiki-cli lint --out revisions/<YYYY-MM-DD>-lint.md`。覆盖:
-1. frontmatter 必填/枚举闭集/page_type/domain 合法/tag 白名单/状态词禁用
-2. `_routes.md` 路径存在 + 关键词歧义
-3. 孤儿页(关键页未被路由覆盖 = 检索不可达)
-4. 死链
-5. 跨域同名重复
-6. 敏感度声明不足
-7. protocol_version(工具是否落后于仓库协议)
-
-判读报告 → 提出修复 → **owner 确认后**再改 → 报告落 `revisions/<date>-lint.md`(不仅在对话答复)。
-
-## 安全审计(git init 前 / 发布前,强制)
-
-跑 `wiki-cli scan --out docs/security-audit-<date>.md`(全库)。逐条裁定每页 `sensitivity`:
-- 命中**客户真名 / 凭证 / 攻击面** → 至少 `maintainer-only`;凭证/漏洞细节 → `exclude`。
-- `personal` 等 `publish:false` 域 → 整体不进团队仓。
-- **结论**:团队仓发布 = 白名单导出 `sensitivity <= team`,**绝不 `git push` 整库**;commit 0 用脱敏快照,不留单人旧历史。
-
-## 写入时校验(pre-commit,约束 C 折中)
-
-维护者本机可装 git pre-commit hook 跑 `wiki-cli lint --staged`(见 `adapters/git-hooks/`),校验不过不让 commit。本地、只对写入者、不影响只读成员,**不是团队级 CI**。
+1. 跑 `wiki-cli lint --out "{{WIKI_ROOT}}/.wiki/reports/<YYYY-MM-DD>-lint.md"`。检查覆盖:
+   - ❌ error:`_routes.md` 指向不存在的文件(会让 AI 加载失败,唯一的硬伤级)
+   - ⚠️ warn:死链 / 跨主题同名重复页 / 路由关键词歧义 / 学习页溯源残缺(有 learned_from 缺 learned_commit)/ v2 旧布局提示
+   - 用户自建目录、自由组织、无 frontmatter 的页 **不算问题**(这是设计,不要"修复"它们)
+2. 判读报告:逐条说明影响与建议(修 / 忽略)。
+3. **用户确认后**再动手修;涉及删页一律 `mv` 到 `archive/<YYYY-MM-DD>/`,绝不 `rm`。
+4. 收尾:`log.md` 追加一行 lint 记录;报告文件已在 `.wiki/reports/`,告知用户路径。
