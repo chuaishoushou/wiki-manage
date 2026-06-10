@@ -26,7 +26,7 @@ git clone https://github.com/chuaishoushou/wiki-manage.git ~/AI/wiki-manage   # 
 git clone https://github.com/chuaishoushou/team-wiki.git   ~/AI/team-wiki     # 团队知识(只读源;可选先 clone——装时不存在会提示你 clone)
 ```
 
-> ✅ `./install.sh` 不硬性要求"先 clone 团队仓":团队仓缺失只提示不阻断。个人库也不会被自动建——装到最后会**问你**是否初始化(默认否)。
+> ✅ `./install.sh` 不硬性要求"先 clone 团队仓":团队仓缺失只提示不阻断。个人库会在安装收尾**自动初始化**(幂等:已合规 no-op,绝不覆盖已有页)。
 
 ---
 
@@ -41,38 +41,38 @@ git clone https://github.com/chuaishoushou/team-wiki.git   ~/AI/team-wiki     # 
 .\install.cmd
 ```
 
-它会**逐项交互询问**(回车用默认):① 个人库位置 ② 团队仓位置 → 写好三平台规则指针 → 最后问 ③ 是否现在初始化个人库(默认否)。然后自动探测本机的 Claude Code / Codex / Cursor 各自配好:
+它会**逐项交互询问**(回车用默认):① 个人库位置 ② 团队仓位置 → 写好三平台规则指针 → **自动初始化个人库**(幂等:已合规 no-op,绝不覆盖已有页;无开关、不询问)。然后自动探测本机的 Claude Code / Codex / Cursor 各自配好:
 
 - **Claude Code / Codex** → 写规则指针(`~/.claude/CLAUDE.md` / `~/.codex/AGENTS.md`)+ Claude 软链 skills/命令,重启即生效。
 - **Cursor** → 打印一段 User Rules 文本,复制粘进 **设置 → Rules → User Rules**(唯一手动一步)。
 
-**只装单个平台 / 非交互 / CI / AI** —— 直接调 `bin/wiki-init`,显式给两个库 + `--no-input` + `--init`/`--no-init`(路径一律加引号):
+**只装单个平台 / 非交互 / CI / AI** —— 直接调 `bin/wiki-init`,显式给两个库 + `--no-input`(路径一律加引号):
 
 ```bash
-# 只配 Claude Code(--no-init:暂不初始化个人库;要初始化改成 --init)
+# 只配 Claude Code
 python3 ~/AI/wiki-manage/bin/wiki-init --platform cc \
-    --personal-root "$HOME/AI/wiki" --team-root "$HOME/AI/team-wiki" --write --no-input --no-init
+    --personal-root "$HOME/AI/wiki" --team-root "$HOME/AI/team-wiki" --write --no-input
 
 # 只配 Codex
 python3 ~/AI/wiki-manage/bin/wiki-init --platform codex \
-    --personal-root "$HOME/AI/wiki" --team-root "$HOME/AI/team-wiki" --write --no-input --no-init
+    --personal-root "$HOME/AI/wiki" --team-root "$HOME/AI/team-wiki" --write --no-input
 
 # 只配 Cursor(不要 --write;脚本把 User Rules 打到 stdout,粘一次)
 python3 ~/AI/wiki-manage/bin/wiki-init --platform cursor \
-    --personal-root "$HOME/AI/wiki" --team-root "$HOME/AI/team-wiki" --no-input --no-init
+    --personal-root "$HOME/AI/wiki" --team-root "$HOME/AI/team-wiki" --no-input
 
 # Cursor 项目级规则(写该项目 .cursor/rules/wiki.mdc,每项目一次,用 @wiki 触发):
 python3 ~/AI/wiki-manage/bin/wiki-init --platform cursor \
     --personal-root "$HOME/AI/wiki" --team-root "$HOME/AI/team-wiki" --cursor-project "<项目根>" --write
 ```
 
-> 去掉 `--write` 只打印不落地,先看再执行。`--init` 初始化个人库 / `--no-init` 不初始化(默认)。`--wiki-root` 是 `--personal-root` 的兼容别名。Windows 把 `python3` 换 `py -3`、`$HOME/AI/...` 换 `"%USERPROFILE%\AI\..."`。
+> 去掉 `--write` 只打印不落地,先看再执行。`--write` 时个人库**一律自动初始化**(幂等;`--init`/`--no-init` 已废弃,传了也会被忽略)。`--wiki-root` 是 `--personal-root` 的兼容别名。Windows 把 `python3` 换 `py -3`、`$HOME/AI/...` 换 `"%USERPROFILE%\AI\..."`。
 
 ---
 
 ## 第 3 步:黄金验收(命令行)
 
-> 仅当你在第 2 步选了"初始化个人库"(或个人库本就是有效库)时 protocol 才连得上;选了"暂不初始化"则先 `wiki-cli init ~/AI/wiki` 再验收。
+> 第 2 步安装已自动初始化个人库,protocol 应直接连得上;若报"不是有效 wiki 根",先 `wiki-cli init ~/AI/wiki` 修复结构再验收。
 
 ```bash
 python3 ~/AI/wiki-manage/plugins/flux-wiki/tools/bin/wiki-cli --root ~/AI/wiki protocol
