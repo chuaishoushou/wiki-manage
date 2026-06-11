@@ -129,12 +129,16 @@ def unit_tests_v31():
             f.write("# 带空格的文件\n")
         with open(os.path.join(root, "domains", "a", "links.md"), "w") as f:
             f.write("# 链接页\n[ok](docs/my%20doc.md)\n[[real]]\n[[nope-page]]\n")
+        # 表格内转义别名 [[x\|别名]] 与模板占位符 [[customers/<客户>]] 都不是死链
+        with open(os.path.join(root, "domains", "a", "table-links.md"), "w") as f:
+            f.write("# 表格链接\n| 列 |\n|---|\n| [[real\\|别名]] · [[customers/<客户>]] |\n")
         rep = lint.lint(root)
         codes = [i["code"] for s in rep["sections"] for i in s["issues"]]
         msgs = " ".join(i["msg"] for s in rep["sections"] for i in s["issues"])
         check("%20 链接不误报死链", "dead-link" not in codes, msgs[:160])
         check("[[wikilink]] 死链可见/活链不报", codes.count("dead-wikilink") == 1
               and "nope-page" in msgs)
+        check("转义别名/占位符 wikilink 不误报", "别名" not in msgs and "客户" not in msgs)
 
         # modules/ 是命名空间:协议标准同名骨架页不算重复沉淀
         for d, m in (("a", "m1"), ("b", "m2")):

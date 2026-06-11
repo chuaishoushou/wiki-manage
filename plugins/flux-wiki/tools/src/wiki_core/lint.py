@@ -60,9 +60,13 @@ def _basename_index(root: str) -> Dict[str, int]:
 
 
 def _wikilink_dead(root: str, path: str, target: str, names: Dict[str, int]) -> bool:
-    """[[target]] 按 Obsidian 语义解析:相对当前页 → 相对库根/内容根 → 全库唯一 basename。"""
-    t = target.strip()
-    if not t:
+    """[[target]] 按 Obsidian 语义解析:相对当前页 → 相对库根/内容根 → 全库唯一 basename。
+
+    表格内别名写法 `[[target\\|别名]]` 的管道符要转义,正则截到的 target 会带尾部
+    反斜杠——先剥掉;含 <占位符> 的模板示例链接不算死链。
+    """
+    t = target.strip().rstrip("\\").strip()
+    if not t or "<" in t:
         return False
     cand = t if t.endswith(".md") else t + ".md"
     for base in (os.path.dirname(path), root, repo.content_dir(root)):
