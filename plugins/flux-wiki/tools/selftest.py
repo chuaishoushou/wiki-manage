@@ -6,7 +6,8 @@
   2) CLI 端到端:init → new → search → lint → status(JSON)→ 路径穿越拦截
   3) learn 端到端:git fixture 团队仓 → 首学 → mark → 增量 → 溯源逆查
   4) wiki-init 端到端(隔离 HOME):装 cc → 指针块/skill/命令落地且无残留占位符
-     → 重跑幂等(整段替换不膨胀)→ 旧版 legacy 指针块迁移 + 备份
+     → 重跑幂等(整段替换不膨胀)→ 缺路径参数报错(双路径强制必填,不静默用默认)
+     → 配置记忆(重跑沿用上次提供值)→ 旧版 legacy 指针块迁移 + 备份
   5) skill 触发词断言:description 含必要关键词(防改描述丢触发)
 
 退出码:全过 0,否则 1。
@@ -221,17 +222,31 @@ def init_e2e():
         check("重跑 rc=0 且指针不膨胀", r.returncode == 0
               and os.path.getsize(ptr) == size1)
 
-        # 不配团队仓也能装(团队仓可选)—— 用全新 HOME,排除上一步配置记忆的干扰
+        # 双路径强制必填:全新 HOME(无配置)下非交互缺任一项直接报错,绝不静默用默认;
+        # 装过一次后,配置里上次提供的值可沿用(重跑不必重复给参数)
         with tempfile.TemporaryDirectory() as td_nt:
             home_nt = os.path.join(td_nt, "h")
             os.makedirs(os.path.join(home_nt, ".claude"))
             env_nt = dict(env, HOME=home_nt, USERPROFILE=home_nt)
-            r = subprocess.run([sys.executable, INIT, "--platform", "cc",
-                                "--personal-root", os.path.join(td_nt, "kb"), "--no-input"],
-                               capture_output=True, text=True, env=env_nt, timeout=120)
+            kb_nt = os.path.join(td_nt, "kb")
+
+            def run_init_nt(*args):
+                return subprocess.run([sys.executable, INIT, "--platform", "cc", *args],
+                                      capture_output=True, text=True, env=env_nt, timeout=120)
+
+            r = run_init_nt("--personal-root", kb_nt, "--no-input")
+            check("非交互缺团队仓 rc=2", r.returncode == 2 and "--team-root" in r.stderr)
+            r = run_init_nt("--team-root", team, "--no-input")
+            check("非交互缺个人库 rc=2", r.returncode == 2 and "--personal-root" in r.stderr)
+            r = run_init_nt("--no-input")
+            check("非交互双缺各报其名", r.returncode == 2
+                  and "--personal-root" in r.stderr and "--team-root" in r.stderr)
+            r = run_init_nt("--personal-root", kb_nt, "--team-root", team, "--no-input")
             ptr_nt = os.path.join(home_nt, ".claude", "CLAUDE.md")
-            check("无团队仓安装不阻断", r.returncode == 0
-                  and "未配置" in open(ptr_nt, encoding="utf-8").read())
+            check("双路径齐全安装成功", r.returncode == 0
+                  and team in open(ptr_nt, encoding="utf-8").read())
+            r = run_init_nt("--no-input")  # 两个路径均来自配置记忆(上次明确提供的值)
+            check("配置记忆生效(重跑不报错)", r.returncode == 0)
 
         # 死路径团队仓被拦截(非交互)
         r = run_init("--platform", "cc", "--personal-root", personal,
@@ -256,7 +271,7 @@ def init_e2e():
             os.makedirs(os.path.join(home2, ".claude"))
             env2 = dict(env, HOME=home2, USERPROFILE=home2)
             r = subprocess.run([sys.executable, INIT, "--platform", "cc",
-                                "--personal-root", os.path.join(td2, "kb"),
+                                "--personal-root", os.path.join(td2, "kb"), "--team-root", team,
                                 "--dry-run", "--no-input"],
                                capture_output=True, text=True, env=env2, timeout=120)
             check("dry-run 零写入", r.returncode == 0

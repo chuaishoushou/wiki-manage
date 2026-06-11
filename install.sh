@@ -5,8 +5,9 @@
 #   git clone https://github.com/chuaishoushou/wiki-manage.git ~/AI/wiki-manage
 #   cd ~/AI/wiki-manage && ./install.sh
 #
-# 终端里跑会逐项确认路径(回车用默认);AI/CI(非终端)直接用默认/参数,不卡输入。
-# 可选参数原样透传 bin/wiki-init,如:
+# 安装强制要求提供个人库与团队仓位置,缺一不可:终端里逐项必答(回车只能用明确
+# 显示的默认值,没有"跳过");AI/CI(非终端)必须带全两个参数,缺任一项报错退出
+# (AI 应先向用户询问两个位置再重跑)。参数原样透传 bin/wiki-init,如:
 #   ./install.sh --personal-root ~/AI/wiki --team-root ~/AI/team-wiki
 #
 set -uo pipefail

@@ -28,6 +28,7 @@ cd ~/AI/wiki-manage && ./install.sh
 ./install.sh --platform cursor --cursor-project <项目根>   # Cursor 写项目级规则(默认打印全局 User Rules)
 ./install.sh --dry-run                                     # 只预览,不写任何文件
 ```
+个人库与团队仓位置**强制必填,缺一不可**(来源:参数 / 已有配置 / 终端作答);非终端缺任一项报错退出 rc=2,不会静默用默认路径安装。
 Windows 把 `./install.sh` 换成 `.\install.cmd`,其余参数相同。
 
 ## 验收(装完跑一条)

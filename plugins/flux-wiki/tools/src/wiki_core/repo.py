@@ -149,7 +149,19 @@ def _git(root, args, timeout=10):
 
 
 def is_git_repo(root: str) -> bool:
-    return os.path.isdir(os.path.join(root, ".git"))
+    """root 是否在 git 仓内(仓根 / 大仓子目录 / worktree 均算)。
+
+    团队仓常见形态是"团队大仓里的一个子目录"(自身无 .git),git -C 系列命令
+    在其中都正常工作,因此用 rev-parse 探测而非检查 .git 存在
+    (.git 在 worktree/submodule 下还是文件不是目录,目录检查本就不可靠)。
+    """
+    if not os.path.isdir(root):
+        return False
+    try:
+        r = _git(root, ["rev-parse", "--git-dir"], timeout=5)
+        return r.returncode == 0
+    except (subprocess.TimeoutExpired, FileNotFoundError):
+        return False
 
 
 def git_head_info(root: str) -> Tuple[Optional[str], Optional[str]]:
@@ -203,9 +215,13 @@ def git_behind_count(root: str) -> Tuple[Optional[int], str]:
 
 
 def git_diff_name_status(root: str, since: str) -> Optional[List[Tuple[str, str]]]:
-    """since..HEAD 的净变更 [(status, rel_path)](A 新增/M 修改/D 删除/R 重命名)。失败返回 None。"""
+    """since..HEAD 的净变更 [(status, rel_path)](A 新增/M 修改/D 删除/R 重命名)。失败返回 None。
+
+    --relative:root 是大仓子目录时,只看子目录内的变更且路径相对 root 输出
+    (调用方按 rel_path 拼绝对路径、做知识页过滤,都要求相对 root);root 即仓根时无影响。
+    """
     try:
-        r = _git(root, ["diff", "--name-status", "-M", f"{since}..HEAD"], timeout=15)
+        r = _git(root, ["diff", "--relative", "--name-status", "-M", f"{since}..HEAD"], timeout=15)
         if r.returncode != 0:
             return None
         out: List[Tuple[str, str]] = []
@@ -219,9 +235,12 @@ def git_diff_name_status(root: str, since: str) -> Optional[List[Tuple[str, str]
 
 
 def git_log_subjects(root: str, since: str, limit: int = 50) -> List[str]:
-    """since..HEAD 的提交标题列表(新→旧),供 AI 理解团队改动意图。"""
+    """since..HEAD 的提交标题列表(新→旧),供 AI 理解团队改动意图。
+
+    pathspec 限定 root 子树:大仓里只有动过团队知识目录的提交才与学习相关。
+    """
     try:
-        r = _git(root, ["log", "--format=%h %s", f"{since}..HEAD", f"-{limit}"], timeout=15)
+        r = _git(root, ["log", "--format=%h %s", f"{since}..HEAD", f"-{limit}", "--", "."], timeout=15)
         if r.returncode != 0:
             return []
         return [ln for ln in r.stdout.splitlines() if ln.strip()]

@@ -16,9 +16,10 @@ cd %USERPROFILE%\AI\wiki-manage
 .\install.cmd
 ```
 
-- 终端里跑会逐项确认两个路径(回车用默认):**个人库**(默认 `~/AI/wiki`)和**团队仓**(可跳过,之后重跑补上)。
-- AI / CI(非终端)直接用默认或参数,不会卡在交互上:
+- 安装**强制要求提供两个路径,缺一不可**:**个人库**与**团队仓**(git clone,必须已存在)。终端里跑会逐项必答(个人库回车可用建议默认 `~/AI/wiki`;团队仓必须给路径,没有"跳过")。
+- AI / CI(非终端)必须带全两个参数,缺任一项报错退出(rc=2)并提示先向用户询问,绝不静默用默认:
   `./install.sh --personal-root ~/AI/wiki --team-root ~/AI/team-wiki`
+- 重装 / 更新时不必重复给参数:`~/.flux-wiki.json` 里上次安装提供的路径直接沿用。
 - 安装做的事:初始化个人库(幂等,绝不覆盖已有页)→ 写配置 `~/.flux-wiki.json` → 给探测到的 AI 工具写规则指针(**重装整段替换**,真幂等)→ Claude Code 侧复制 skills/命令 → **自验证**(任何部署物有问题退出非 0)。
 - Cursor 收尾:把输出里两条分隔线之间的文本粘进 设置 → Rules → User Rules(唯一手动步骤,Cursor 不允许脚本写全局规则)。
 - **本仓即运行时,装完不要删**。更新:`git -C ~/AI/wiki-manage pull && cd ~/AI/wiki-manage && ./install.sh`。

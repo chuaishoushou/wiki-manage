@@ -9,14 +9,16 @@
   4. Claude Code 额外把 skills + 斜杠命令渲染复制进 ~/.claude/
   5. 自验证:部署物无残留占位符、wiki-cli 可跑、个人库有效;任一不过退出非 0
 
-路径来源(每项独立):命令行参数 > 已有配置 ~/.flux-wiki.json > 默认。
-终端交互时逐项确认(回车用默认);非终端(AI/CI)直接用上述来源,不卡 stdin。
-团队仓**可选**:没有就跳过,之后想配再重跑(加 --team-root)即可。
+个人库与团队仓位置**强制必填,缺一不可**(每项独立):
+命令行参数 > 已有配置 ~/.flux-wiki.json(即上次安装时用户提供的值)> 终端询问。
+终端交互逐项必答(回车只能用方括号里明确显示的默认值,没有"跳过");
+非终端(AI/CI)缺任一项**报错退出(rc=2),绝不静默用默认** ——
+AI 执行安装时应先向用户询问个人库与团队仓位置,再带参数重跑。
 
 本仓(wiki-manage)就是运行时:装完**不要删除**;更新 = git pull 后重跑本命令。
 
 用法:
-  bin/wiki-init                                          # 交互(终端)或全默认(非终端)
+  bin/wiki-init                                          # 终端逐项询问(非终端缺参则报错)
   bin/wiki-init --personal-root ~/AI/wiki --team-root ~/AI/team-wiki
   bin/wiki-init --platform cc --dry-run                  # 只预览,不写任何文件
 """
@@ -76,49 +78,73 @@ def _interactive(no_input):
     return (not no_input) and sys.stdin.isatty() and sys.stdout.isatty()
 
 
-def _ask(title, default, allow_skip=False):
-    """终端交互问一个路径:回车用默认(default=None 且 allow_skip 时回车=跳过)。"""
-    tail = f"[回车 = {default}] > " if default else ("[回车 = 跳过] > " if allow_skip else "> ")
+def _ask(title, default):
+    """终端交互问一个路径,必答:回车只能用明确显示的默认值,无默认则重问,没有"跳过"。"""
+    tail = f"[回车 = {default}] > " if default else "> "
     while True:
         try:
             s = input(f"{title}\n  {tail}").strip()
         except EOFError:
-            return default
+            sys.stderr.write("\n❌ 交互被中断,路径未确认。请带 --personal-root / --team-root 参数重跑。\n")
+            sys.exit(2)
         if s:
             return _abspath(s)
-        if default or allow_skip:
+        if default:
             return default
+        # 必答项:无默认时空回车不放行,重新问
 
 
 def resolve_paths(args, interactive):
-    """返回 (personal, team)。team 可为 None(未配置)。"""
+    """返回 (personal, team)。两项强制必填,缺一不可,绝不静默回退到默认值。
+
+    来源优先级(每项独立):命令行参数 > 已有配置(上次安装用户提供的值)> 终端询问。
+    非终端(AI/CI)缺任一项 → 报错退出 rc=2。
+    """
     cfg = load_config()
+    missing = []
+
+    # ① 个人库
     personal = args.personal_root or args.wiki_root
     if personal:
         personal = _abspath(personal)
     else:
-        default = _abspath(cfg.get("personal_root") or os.environ.get("WIKI_ROOT") or DEFAULT_PERSONAL)
-        personal = _ask("① 个人库目录(日常读写的知识库;不存在会自动建)", default) if interactive else default
+        known = cfg.get("personal_root") or os.environ.get("WIKI_ROOT")
+        if interactive:
+            default = _abspath(known) if known else _abspath(DEFAULT_PERSONAL)
+            personal = _ask("① 个人库目录(日常读写的知识库;不存在会自动建)", default)
+        elif known:
+            personal = _abspath(known)
+        else:
+            missing.append(f"--personal-root <目录>   个人库(日常读写;不存在会自动建,建议 {DEFAULT_PERSONAL})")
 
+    # ② 团队仓:与个人库同等强制必填
     if args.team_root:
         team = _abspath(args.team_root)
     else:
-        default = cfg.get("team_root")
-        default = _abspath(default) if default else None
+        known = cfg.get("team_root")
+        default = _abspath(known) if known else None
         if interactive:
-            team = _ask("② 团队知识仓目录(git clone,只读,供 /wiki-learn 学习;没有可跳过,之后重跑补上)",
-                        default, allow_skip=True)
-        else:
+            team = _ask("② 团队知识仓目录(git clone,只读,供 /wiki-learn 学习)", default)
+        elif default:
             team = default
+        else:
+            team = None
+            missing.append("--team-root <目录>       团队知识仓(git clone,只读,供 /wiki-learn 学习)")
 
-    # 团队仓给了路径就必须真实存在 —— 绝不把死路径写进指针(本机 team-wiki2 事故的教训)
-    while team and not os.path.isdir(team):
+    if missing:
+        sys.stderr.write("❌ 缺少必需的路径参数(安装强制要求提供个人库与团队仓位置,缺一不可):\n")
+        for m in missing:
+            sys.stderr.write(f"   {m}\n")
+        sys.stderr.write("   AI 执行安装时:请先向用户询问上述位置,再带参数重跑本命令。\n")
+        sys.exit(2)
+
+    # 团队仓必须真实存在 —— 绝不把死路径写进指针(本机 team-wiki2 事故的教训)
+    while not os.path.isdir(team):
         if interactive:
             info(f"  ⚠ 目录不存在:{team}")
-            team = _ask("② 团队知识仓目录(确认路径,或回车跳过)", None, allow_skip=True)
+            team = _ask("② 团队知识仓目录(必须是已存在的目录)", None)
         else:
-            sys.stderr.write(f"❌ --team-root 指向的目录不存在:{team}\n"
-                             "   修正路径重跑;或先不配团队仓(去掉 --team-root),之后重跑补上。\n")
+            sys.stderr.write(f"❌ --team-root 指向的目录不存在:{team}\n   修正路径后重跑。\n")
             sys.exit(2)
     return personal, team
 
@@ -354,8 +380,8 @@ def verify(personal, platforms, dry_run):
 def main():
     p = argparse.ArgumentParser(description="flux-wiki 一键安装(个人库 + 三平台规则指针)")
     p.add_argument("--platform", choices=["cc", "codex", "cursor", "all"], default="all")
-    p.add_argument("--personal-root", help=f"个人库目录(默认 {DEFAULT_PERSONAL};不存在会自动建)")
-    p.add_argument("--team-root", help="团队知识仓目录(git clone,只读;可选,之后重跑可补)")
+    p.add_argument("--personal-root", help=f"个人库目录(强制必填;不存在会自动建,建议 {DEFAULT_PERSONAL})")
+    p.add_argument("--team-root", help="团队知识仓目录(强制必填;git clone,只读,必须已存在)")
     p.add_argument("--wiki-root", help="[兼容别名] 等价 --personal-root")
     p.add_argument("--dry-run", action="store_true", help="只预览,不写任何文件")
     p.add_argument("--no-input", action="store_true", help="跳过交互(用参数/配置/默认)")
@@ -368,7 +394,7 @@ def main():
 
     info(f"\nwiki-manage : {WIKI_MANAGE}(本仓即运行时,请勿删除;更新 = git pull 后重跑安装)")
     info(f"个人库      : {personal}")
-    info(f"团队仓      : {team or '(未配置 —— 个人库可独立使用;之后重跑加 --team-root 即可)'}")
+    info(f"团队仓      : {team}")
     info(f"模式        : {'仅预览(--dry-run)' if dry else '安装'}")
 
     # 1. 个人库初始化(先建库,指针永不指向不存在的库)
@@ -380,6 +406,7 @@ def main():
     # 2. 机器级配置
     if not dry:
         cfg = load_config()
+        cfg.pop("team_opt_out", None)  # 旧版"显式不配团队仓"记忆已废弃(团队仓现为强制必填)
         cfg.update({"personal_root": personal, "team_root": team,
                     "wiki_manage": WIKI_MANAGE,
                     "installed_at": datetime.now().isoformat(timespec="seconds")})
@@ -407,8 +434,7 @@ def main():
     # 4. 自验证
     ok = verify(personal, done, dry)
     if not dry and ok:
-        info(f"\n🎉 安装完成。个人库:{personal}"
-             + (f";团队仓:{team}(用 /wiki-learn 学习团队知识)" if team else ""))
+        info(f"\n🎉 安装完成。个人库:{personal};团队仓:{team}(用 /wiki-learn 学习团队知识)")
     sys.exit(0 if ok else 1)
 
 
