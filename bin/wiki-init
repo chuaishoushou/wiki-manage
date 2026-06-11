@@ -151,10 +151,21 @@ def resolve_paths(args, interactive):
 
 # ---------- 渲染 ----------
 
+def content_root(personal):
+    """知识写入层:v2 旧库(根下有 wiki/ 内容层)= <root>/wiki,v3 扁平库 = 根本身。
+
+    模板里的写入路径必须用它渲染——按库根写会让 v2 库的新知识落到
+    CLI 永远扫不到的根层死区(search/lint/learn 溯源全部失明)。
+    """
+    sub = os.path.join(personal, "wiki")
+    return sub if os.path.isdir(sub) else personal
+
+
 def render_text(text, personal, team):
     team_line = (f"- **团队知识仓**(git,只读,学习源):`{team}`" if team
                  else "- **团队知识仓**:未配置(需要时重跑 wiki-manage 安装,加 `--team-root <路径>`)")
     return (text.replace("{{WIKI_CLI}}", CLI)
+                .replace("{{WIKI_CONTENT}}", content_root(personal))
                 .replace("{{WIKI_ROOT}}", personal)
                 .replace("{{TEAM_ROOT}}", team or "<未配置>")
                 .replace("{{TEAM_LINE}}", team_line))

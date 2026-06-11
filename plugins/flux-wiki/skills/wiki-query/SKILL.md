@@ -12,6 +12,7 @@ allowed-tools: Read, Grep, Glob, Bash(python3:*)
 
 1. **路由优先**(若 `{{WIKI_ROOT}}/_routes.md` 有内容):关键词命中路由表 → 直接 Read 对应文件,最准。
 2. **检索**:`wiki-cli search "<词>"`,或直接 Grep `{{WIKI_ROOT}}`。读最相关的页。
+   - 需要**团队原文**(个人库没学过/想看团队最新口径)→ 团队仓也是合法的库,可直接只读检索:`wiki-cli --root "{{TEAM_ROOT}}" search "<词>"`。
 3. **综合作答**:区分事实 / 解读 / 未决问题;**引用页面路径**(可点击)。
    - 从团队仓学来的页带 `learned_from` 溯源,需要更深背景时可顺藤读团队仓原页。
    - 库里查不到且配了团队仓 → 可顺带提示:`/wiki-learn` 可同步团队最新知识。

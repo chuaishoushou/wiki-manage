@@ -85,8 +85,12 @@ def cmd_init(args):
 
 def cmd_new(args):
     root = _resolve_root(args)
-    rel, content = scaffold_mod.new_page(root, args.type, args.slug, args.domain,
-                                         title=args.title or "")
+    try:
+        rel, content = scaffold_mod.new_page(root, args.type, args.slug, args.domain,
+                                             title=args.title or "")
+    except ValueError as e:
+        sys.stderr.write(f"错误:{e}\n")
+        sys.exit(2)
     # v2 旧库兼容:内容层在 wiki/ 下时落到 wiki/domains/...
     base = repo.content_dir(root)
     full = repo.resolve_in_root(base, rel)
@@ -99,8 +103,7 @@ def cmd_new(args):
     os.makedirs(os.path.dirname(full), exist_ok=True)
     with open(full, "w", encoding="utf-8") as f:
         f.write(content)
-    # full 已被 resolve_in_root realpath 化(macOS /tmp→/private/tmp),root 同样要 realpath
-    out_rel = repo.rel_path(os.path.realpath(root), full)
+    out_rel = repo.rel_path(root, full)
     if args.json:
         _emit({"ok": True, "path": out_rel})
         return
@@ -115,8 +118,8 @@ def cmd_search(args):
         _emit(results)
         return
     if not results:
-        has_any = next(repo.iter_pages(root), None) is not None
-        print("库还是空的,先写第一页(直接建文件或 wiki-cli new)。" if not has_any
+        print("库还是空的,先写第一页(直接建文件或 wiki-cli new)。"
+              if not search_mod.has_knowledge_pages(root)
               else "(无命中)。换个关键词,或直接 Grep 库目录。")
         return
     for r in results:
@@ -152,8 +155,11 @@ def cmd_learn(args):
         res = learn_mod.mark(root, team, args.mark)
         if args.json:
             _emit(res)
-        else:
-            print(f"✅ 已记录学习水位: {res['last_commit'][:12]}(团队仓 {res['team_root']})")
+            sys.exit(0 if res.get("ok") else 2)
+        if not res.get("ok"):
+            sys.stderr.write(f"错误:{res['reason']}\n")
+            sys.exit(2)
+        print(f"✅ 已记录学习水位: {res['last_commit'][:12]}(团队仓 {res['team_root']})")
         return
     res = learn_mod.diff(root, team, do_pull=args.pull)
     if args.json:
@@ -177,8 +183,13 @@ def cmd_status(args):
                      if os.path.isdir(os.path.join(domains_dir, d))) if os.path.isdir(domains_dir) else []
     page_count = sum(1 for _ in repo.iter_pages(root))
     team = cfg.get("team_root")
+    team_key = os.path.abspath(os.path.expanduser(team)) if team else None
     state = learn_mod.load_state(root)
-    team_state = state.get(os.path.abspath(os.path.expanduser(team)), {}) if team else {}
+    # 水位按团队仓多键存储(--team 学过的也在);全部列出,配置仓标注默认
+    learn_states = [{"team_root": k, "last_commit": v.get("last_commit"),
+                     "marked_at": v.get("marked_at"), "is_default": (k == team_key)}
+                    for k, v in sorted(state.items()) if isinstance(v, dict)]
+    team_state = state.get(team_key, {}) if team_key else {}
     payload = {
         "root": root,
         "root_source": source,
@@ -190,22 +201,32 @@ def cmd_status(args):
         "team_root_exists": bool(team and os.path.isdir(os.path.expanduser(team))),
         "learn_last_commit": team_state.get("last_commit"),
         "learn_marked_at": team_state.get("marked_at"),
+        "learn_states": learn_states,
     }
     if args.json:
         _emit(payload)
         return
     src_label = {"start": "--root 参数", "env": "$WIKI_ROOT", "config": f"配置 {repo.CONFIG_PATH}",
                  "cwd": "从当前目录上溯"}.get(source, source)
+    legacy_ack = legacy and os.path.isfile(os.path.join(root, ".wiki", "ack-legacy-layout"))
+    layout_label = ("v2 嵌套(已确认保留)" if legacy_ack
+                    else "⚠ v2 嵌套(建议迁 v3,见 README)" if legacy else "v3 扁平 ✅")
     print(f"wiki 根 : {root}  (来源: {src_label})")
-    print(f"布局    : {'⚠ v2 嵌套(建议迁 v3,见 README)' if legacy else 'v3 扁平 ✅'}")
+    print(f"布局    : {layout_label}")
     print(f"页数    : {page_count}  主题: {', '.join(domains) or '(无)'}")
     if team:
         ok = payload["team_root_exists"]
         print(f"团队仓  : {team} {'✅' if ok else '❌ 路径不存在'}")
-        wm = payload["learn_last_commit"]
-        print(f"学习水位: {wm[:12] + '  @ ' + (payload['learn_marked_at'] or '') if wm else '(还没学习过;跑 /wiki-learn)'}")
     else:
         print("团队仓  : 未配置(需要时重跑安装加 --team-root,或 learn 时显式 --team)")
+    shown = False
+    for st in learn_states:
+        wm = st["last_commit"] or "?"
+        tag = "(默认)" if st["is_default"] else ""
+        print(f"学习水位: {wm[:12]}  @ {st['marked_at'] or ''}  {st['team_root']}{tag}")
+        shown = True
+    if team and not shown:
+        print("学习水位: (还没学习过;跑 /wiki-learn)")
 
 
 # ---------- 辅助 ----------
@@ -245,7 +266,14 @@ def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(prog="wiki-cli", description="轻量个人知识库工具(init/new/search/lint/learn/status)")
     p.add_argument("--root", help="wiki 根路径(默认: $WIKI_ROOT → ~/.flux-wiki.json 配置 → 当前目录上溯)")
     p.add_argument("--json", action="store_true", help="JSON 输出")
-    sub = p.add_subparsers(dest="cmd", required=True)
+    # --root/--json 写在子命令前后都接受(`search x --json` 与 `--json search x` 等价)。
+    # 子命令侧用 SUPPRESS 默认值:不传时不覆盖主解析器已解析的值。
+    common = argparse.ArgumentParser(add_help=False)
+    common.add_argument("--root", default=argparse.SUPPRESS,
+                        help="wiki 根路径(同全局 --root,两个位置均可)")
+    common.add_argument("--json", action="store_true", default=argparse.SUPPRESS,
+                        help="JSON 输出(同全局 --json)")
+    sub = p.add_subparsers(dest="cmd", required=True, parser_class=lambda **kw: argparse.ArgumentParser(parents=[common], **kw))
 
     sp = sub.add_parser("init", help="建库 / 结构修复(幂等:缺啥补啥,不覆盖已有)")
     sp.add_argument("dir", help="目标目录(空=新建;已存在=补全缺失结构)")

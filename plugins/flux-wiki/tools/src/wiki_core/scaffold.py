@@ -92,6 +92,18 @@ date_created: {date}
 """
 
 
+def _safe_name(value: str, what: str) -> str:
+    """slug/domain 必须是单层目录/文件名:含路径分隔符或 .. 一律拒绝。
+
+    没有这道闸,`new concept ../../x --domain y` 会静默逃出 domains/ 落到库根
+    (resolve_in_root 只防越出库,不防库内乱窜)。
+    """
+    v = (value or "").strip()
+    if not v or v in (".", "..") or "/" in v or "\\" in v or v.startswith("."):
+        raise ValueError(f"{what} 必须是单层名称(kebab-case),不能含路径分隔符或以点开头: {value!r}")
+    return v
+
+
 def new_page(root: str, page_type: str, slug: str, domain: str,
              title: str = "", date: str = "") -> tuple:
     """生成一页骨架的【相对内容根的路径 + 内容】(不写盘,由调用方写)。
@@ -99,6 +111,9 @@ def new_page(root: str, page_type: str, slug: str, domain: str,
     page_type 不设闭集:concept/query/source/module 等常见类型映射到约定子目录,
     其他类型按 `<type>s/` 建目录 —— 用户自由扩展不受限。
     """
+    slug = _safe_name(slug, "slug")
+    domain = _safe_name(domain, "--domain")
+    page_type = _safe_name(page_type, "type")
     if not date:
         import datetime
         date = datetime.date.today().isoformat()

@@ -6,15 +6,15 @@ allowed-tools: Read, Grep, Glob, Write, Edit, Bash(git:*), Bash(python3:*)
 
 # wiki-ingest:记知识进个人库
 
-> 约定:`wiki-cli` = `python3 "{{WIKI_CLI}}"`;个人库 = `{{WIKI_ROOT}}`。
+> 约定:`wiki-cli` = `python3 "{{WIKI_CLI}}"`;个人库 = `{{WIKI_ROOT}}`,**知识写入层 = `{{WIKI_CONTENT}}`**(v2 嵌套库是 `<库根>/wiki`,v3 扁平库即库根;写错层 CLI 会扫不到)。
 > 规则真源是 `{{WIKI_ROOT}}/AGENTS.md`,有分歧以它为准。
 
 ## 流程(轻量,通常 4 步)
 
-1. **找落点**:看 `{{WIKI_ROOT}}/domains/` 现有主题(目录即主题),判断归属。
-   - 命中已有主题 → 落 `domains/<主题>/`(主题内子目录自由;常用 concepts/ queries/ sources/ modules/)。
+1. **找落点**:看 `{{WIKI_CONTENT}}/domains/` 现有主题(目录即主题),判断归属。
+   - 命中已有主题 → 落 `{{WIKI_CONTENT}}/domains/<主题>/`(主题内子目录自由;常用 concepts/ queries/ sources/ modules/)。
    - 是新主题 → **直接建目录**,不需要登记审批;顺手在 `overview.md` 加一行导航。
-   - 拿不准 → 放 `inbox/`,留给用户日后定。
+   - 拿不准 → 放 `{{WIKI_CONTENT}}/inbox/`(没有就建),留给用户日后定。
 2. **先查重**:`wiki-cli search "<关键词>"`(或 Grep)。已有相关页 → **优先更新整合**,不新建重复页。
 3. **写盘**:直接 Write,或 `wiki-cli new <type> <slug> --domain <主题>` 生成骨架再填正文。
    - 文件名小写 kebab-case;frontmatter 推荐带 `tags / status / date_created`(非强制)。

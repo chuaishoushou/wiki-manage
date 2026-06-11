@@ -96,6 +96,91 @@ def unit_tests():
         check("v2 旧布局保护(不补 v3 骨架)", rl.get("legacy") and not rl["created"])
 
 
+def unit_tests_v31():
+    """v3.1 修复的回归钉子:全链路体检抓出的真实 bug,每个一条用例。"""
+    print("\n== 1b) 单元测试(v3.1 回归)==")
+    from wiki_core import lint, routes, scaffold, search
+
+    with tempfile.TemporaryDirectory() as td:
+        root = os.path.join(td, "w")
+        scaffold.scaffold(root, domains=["a", "b"])
+        # 路由表空的必加载列:可选列绝不能移位顶替(曾触发唯一 error 级检查的误报)
+        with open(os.path.join(root, "domains", "a", "real.md"), "w") as f:
+            f.write("# real\n")
+        with open(os.path.join(root, "_routes.md"), "a") as f:
+            f.write("| `kw-empty` |  | `domains/a/real.md` |\n")
+        rs = routes.parse_routes(root)
+        r0 = next(r for r in rs if "kw-empty" in r.keywords)
+        check("路由空必加载列不移位", r0.required == [] and r0.optional == ["domains/a/real.md"])
+        # 可选列双基准解析:短名(相对必加载页目录)与根相对都认
+        with open(os.path.join(root, "domains", "a", "sibling.md"), "w") as f:
+            f.write("# sib\n")
+        with open(os.path.join(root, "_routes.md"), "a") as f:
+            f.write("| `kw2` | `domains/a/real.md` | `sibling.md`, `domains/a/real.md` |\n")
+        rs = routes.parse_routes(root)
+        check("可选列短名按必加载页目录解析", routes.missing_optional(root, rs) == [])
+        rep = lint.lint(root)
+        check("路由检查 0 error(空列+短名可选列都不误报)", rep["summary"]["errors"] == 0,
+              json.dumps(rep["summary"], ensure_ascii=False))
+
+        # %20 链接指向真实文件不是死链;[[wikilink]] 死链能被看见
+        os.makedirs(os.path.join(root, "domains", "a", "docs"), exist_ok=True)
+        with open(os.path.join(root, "domains", "a", "docs", "my doc.md"), "w") as f:
+            f.write("# 带空格的文件\n")
+        with open(os.path.join(root, "domains", "a", "links.md"), "w") as f:
+            f.write("# 链接页\n[ok](docs/my%20doc.md)\n[[real]]\n[[nope-page]]\n")
+        rep = lint.lint(root)
+        codes = [i["code"] for s in rep["sections"] for i in s["issues"]]
+        msgs = " ".join(i["msg"] for s in rep["sections"] for i in s["issues"])
+        check("%20 链接不误报死链", "dead-link" not in codes, msgs[:160])
+        check("[[wikilink]] 死链可见/活链不报", codes.count("dead-wikilink") == 1
+              and "nope-page" in msgs)
+
+        # modules/ 是命名空间:协议标准同名骨架页不算重复沉淀
+        for d, m in (("a", "m1"), ("b", "m2")):
+            p = os.path.join(root, "domains", d, "modules", m)
+            os.makedirs(p, exist_ok=True)
+            with open(os.path.join(p, "task-history.md"), "w") as f:
+                f.write("# th\n")
+        with open(os.path.join(root, "domains", "a", "same-name.md"), "w") as f:
+            f.write("# s\n")
+        with open(os.path.join(root, "domains", "b", "same-name.md"), "w") as f:
+            f.write("# s\n")
+        rep = lint.lint(root)
+        dups = [i for s in rep["sections"] for i in s["issues"] if i["code"] == "possible-dup"]
+        check("模块骨架同名不报 dup,跨域同名仍报", len(dups) == 1 and "same-name" in dups[0]["msg"])
+
+        # search:frontmatter(summary/tags)参与检索;库根协议文件不抢排名
+        with open(os.path.join(root, "domains", "a", "fm-only.md"), "w") as f:
+            f.write("---\nsummary: 独特词汇甲乙丙\ntags: [概念]\n---\n# 页标题\n正文没有那个词\n")
+        with open(os.path.join(root, "log.md"), "a") as f:
+            f.write("## 记录 独特词汇甲乙丙 出现在台账\n")
+        hits = search.search(root, "独特词汇甲乙丙")
+        check("frontmatter 命中可检索", any(h["path"].endswith("fm-only.md") for h in hits))
+        check("库根台账不参与检索", not any(h["path"].endswith("log.md") for h in hits))
+
+        # v2 布局确认标记:用户拍板保留后不再每次体检都警告
+        legacy = os.path.join(td, "legacy2")
+        os.makedirs(os.path.join(legacy, "wiki", "domains"))
+        open(os.path.join(legacy, "AGENTS.md"), "w").write("# x")
+        warn1 = any(i["code"] == "legacy-layout"
+                    for s in lint.lint(legacy)["sections"] for i in s["issues"])
+        os.makedirs(os.path.join(legacy, ".wiki"), exist_ok=True)
+        open(os.path.join(legacy, ".wiki", "ack-legacy-layout"), "w").write("")
+        warn2 = any(i["code"] == "legacy-layout"
+                    for s in lint.lint(legacy)["sections"] for i in s["issues"])
+        check("legacy 警告可确认静默", warn1 and not warn2)
+
+        # slug/domain 路径穿越拒绝
+        for bad in ("../escape", "a/b", "..", ".hidden"):
+            try:
+                scaffold.new_page(root, "concept", bad, "a")
+                check(f"slug 穿越被拒({bad})", False)
+            except ValueError:
+                check(f"slug 穿越被拒({bad})", True)
+            break  # 一个代表用例即可,其余形态同一闸门
+
+
 # ---------- 2. CLI 端到端 ----------
 
 def cli_e2e():
@@ -124,50 +209,101 @@ def cli_e2e():
         # --root 指向无效路径 → 硬失败不静默回退
         r = run_cli(["--root", os.path.join(td, "nope"), "status"])
         check("--root 无效硬失败", r.returncode == 2)
+        # 全局旗标写在子命令后也接受(`search x --json --root <p>` 与前置写法等价)
+        r = run_cli(["search", "演示页", "--json", "--root", root])
+        ok = r.returncode == 0
+        try:
+            hits = json.loads(r.stdout) if ok else []
+        except json.JSONDecodeError:
+            hits = []
+        check("旗标后置可用(search x --json --root)", ok and any(
+            "demo-page" in h.get("path", "") for h in hits), r.stderr.strip()[:120])
+        # new 的 slug 含路径分隔符 → rc=2 拒绝,不落盘
+        r = run_cli(["--root", root, "new", "concept", "../escape", "--domain", "backend"])
+        check("new slug 穿越 rc=2", r.returncode == 2
+              and not os.path.isfile(os.path.join(root, "escape.md")))
 
 
 # ---------- 3. learn 端到端 ----------
 
 def learn_e2e():
-    print("\n== 3) learn 端到端(git fixture)==")
+    """fixture 取真实形态:团队知识库是「大仓里的子目录」(mono/wiki-team),
+    覆盖 --relative 路径、pathspec 过滤、改名、协议归档(git mv→archive)、
+    未提交页口径、水位校验/停滞提示——这些都是真实环境抓过 bug 的场景。"""
+    print("\n== 3) learn 端到端(大仓子目录 git fixture)==")
     with tempfile.TemporaryDirectory() as td:
         personal = os.path.join(td, "me")
-        team = os.path.join(td, "team")
+        mono = os.path.join(td, "mono")
+        team = os.path.join(mono, "wiki-team")
         run_cli(["init", personal])
+        os.makedirs(mono)
+        git(mono, "init", "-q")
         run_cli(["init", team, "--domains", "shared"])
-        git(team, "init", "-q")
-        git(team, "add", "-A")
-        git(team, "commit", "-qm", "init team wiki")
+        # 域内导航页(策略:overview.md 任何层级都不算知识页,钉死防回归)
+        with open(os.path.join(team, "domains", "shared", "overview.md"), "w") as f:
+            f.write("# shared 域导航\n- [rule-one](concepts/rule-one.md)\n")
+        # 大仓里 wiki-team 之外的内容(不该进学习视野)
+        os.makedirs(os.path.join(mono, "openspec"))
+        with open(os.path.join(mono, "openspec", "note.md"), "w") as f:
+            f.write("# 大仓其他目录的文档\n")
+        git(mono, "add", "-A")
+        git(mono, "commit", "-qm", "init mono + team wiki")
         run_cli(["--root", team, "new", "concept", "rule-one", "--domain", "shared"])
-        git(team, "add", "-A")
-        git(team, "commit", "-qm", "feat: rule-one")
+        git(mono, "add", "-A")
+        git(mono, "commit", "-qm", "feat: rule-one")
+        # 工作区未提交页:首学/增量都不应看见(同一事实源 = git 已提交内容)
+        with open(os.path.join(team, "domains", "shared", "concepts", "untracked.md"), "w") as f:
+            f.write("# 未提交草稿\n")
 
         r = run_cli(["--root", personal, "--json", "learn", "--team", team])
         d = json.loads(r.stdout)
+        rels = [p["team_rel"] for p in d["pages"]]
         check("learn 首学列知识页(不含协议文件)", d["ok"] and d["first_time"]
-              and any(p["team_rel"].endswith("rule-one.md") for p in d["pages"])
-              and not any(p["team_rel"] == "AGENTS.md" for p in d["pages"]))
+              and any(x.endswith("rule-one.md") for x in rels)
+              and "AGENTS.md" not in rels)
+        check("首学路径相对 wiki-team(大仓子目录)", all(not x.startswith("wiki-team/") for x in rels))
+        check("大仓其他目录不进学习视野", not any("openspec" in x for x in rels))
+        check("域内 overview.md 是导航不是知识页", not any(x.endswith("overview.md") for x in rels))
+        check("未提交页首学不可见(与增量同口径)", not any("untracked" in x for x in rels))
+        os.remove(os.path.join(team, "domains", "shared", "concepts", "untracked.md"))
         head = d["head"]
+
+        # 水位校验:垃圾哈希当场报错,而不是下次学习才爆
+        r = run_cli(["--root", personal, "learn", "--team", team, "--mark", "deadbeef1234"])
+        check("--mark 垃圾哈希被拒 rc=2", r.returncode == 2)
 
         # 模拟 AI 学习落盘(带溯源)
         learned_dir = os.path.join(personal, "domains", "shared", "concepts")
         os.makedirs(learned_dir, exist_ok=True)
-        with open(os.path.join(learned_dir, "rule-one.md"), "w") as f:
+        learned_page = os.path.join(learned_dir, "rule-one.md")
+        with open(learned_page, "w") as f:
             f.write(f"---\nlearned_from: domains/shared/concepts/rule-one.md\n"
                     f"learned_commit: {head}\n---\n# rule-one(已学)\n")
-        r = run_cli(["--root", personal, "learn", "--team", team, "--mark", head])
-        check("learn --mark", r.returncode == 0)
+        r = run_cli(["--root", personal, "learn", "--team", team, "--mark", head[:12]])
+        check("learn --mark(短哈希展开为全哈希)", r.returncode == 0)
 
         r = run_cli(["--root", personal, "--json", "learn", "--team", team])
         d = json.loads(r.stdout)
-        check("学完无增量 up_to_date", d["ok"] and d["up_to_date"])
+        check("学完无增量 up_to_date", d["ok"] and d["up_to_date"]
+              and not d.get("watermark_stale"))
+
+        # 只动大仓其他目录:无知识页增量,但水位落后于 HEAD → 提示可推进
+        with open(os.path.join(mono, "openspec", "note2.md"), "w") as f:
+            f.write("# другое\n")
+        git(mono, "add", "-A")
+        git(mono, "commit", "-qm", "docs: openspec note2 (wiki-team 之外)")
+        r = run_cli(["--root", personal, "--json", "learn", "--team", team])
+        d = json.loads(r.stdout)
+        check("仓动了但知识页没动:up_to_date + 水位停滞提示", d["ok"] and d["up_to_date"]
+              and d.get("watermark_stale") is True)
+        run_cli(["--root", personal, "learn", "--team", team, "--mark", d["head"]])
 
         run_cli(["--root", team, "new", "concept", "rule-two", "--domain", "shared"])
         # 同时改 rule-one,验证 previous 逆查
         with open(os.path.join(team, "domains", "shared", "concepts", "rule-one.md"), "a") as f:
             f.write("\n更新内容\n")
-        git(team, "add", "-A")
-        git(team, "commit", "-qm", "feat: rule-two + 更新 rule-one")
+        git(mono, "add", "-A")
+        git(mono, "commit", "-qm", "feat: rule-two + 更新 rule-one")
         r = run_cli(["--root", personal, "--json", "learn", "--team", team])
         d = json.loads(r.stdout)
         one = next((p for p in d["pages"] if p["team_rel"].endswith("rule-one.md")), None)
@@ -176,7 +312,80 @@ def learn_e2e():
         check("已学页带 previous 落点", one and one["previous"]
               and one["previous"].endswith("rule-one.md"))
         check("新页 previous 为空", two and not two["previous"])
-        check("附期间提交标题", any("rule-two" in c for c in d["commits"]))
+        check("附期间提交标题(pathspec 只含本子树)", any("rule-two" in c for c in d["commits"])
+              and not any("openspec" in c for c in d["commits"]))
+        run_cli(["--root", personal, "learn", "--team", team, "--mark", d["head"]])
+
+        # 改名(R):必须保留旧路径,previous 按旧路径命中,否则会被当全新页重复学
+        git(mono, "mv", "wiki-team/domains/shared/concepts/rule-one.md",
+            "wiki-team/domains/shared/concepts/rule-one-renamed.md")
+        git(mono, "commit", "-qm", "rename: rule-one → rule-one-renamed")
+        r = run_cli(["--root", personal, "--json", "learn", "--team", team])
+        d = json.loads(r.stdout)
+        ren = next((p for p in d["pages"] if p["status"] == "R"), None)
+        check("改名保留旧路径", ren and ren.get("old_rel", "").endswith("rule-one.md")
+              and ren["team_rel"].endswith("rule-one-renamed.md"))
+        check("改名 previous 按旧路径命中", ren and ren["previous"]
+              and ren["previous"].endswith("rule-one.md"))
+        # 模拟 AI 按 wiki-learn 流程把已学页的 learned_from 更新为新路径
+        with open(learned_page, "w") as f:
+            f.write(f"---\nlearned_from: domains/shared/concepts/rule-one-renamed.md\n"
+                    f"learned_commit: {d['head']}\n---\n# rule-one(已学,随团队改名)\n")
+        run_cli(["--root", personal, "learn", "--team", team, "--mark", d["head"]])
+
+        # 协议归档(git mv → archive/):对成员必须呈现为删除,不能凭空消失
+        arch_dir = "wiki-team/archive/2026-01-01/domains/shared/concepts"
+        os.makedirs(os.path.join(mono, arch_dir))
+        git(mono, "mv", "wiki-team/domains/shared/concepts/rule-one-renamed.md",
+            arch_dir + "/rule-one-renamed.md")
+        git(mono, "commit", "-qm", "archive: rule-one-renamed(协议归档)")
+        r = run_cli(["--root", personal, "--json", "learn", "--team", team])
+        d = json.loads(r.stdout)
+        gone = next((p for p in d["pages"] if p["status"] == "D"), None)
+        check("协议归档呈现为删除(不再隐身)", d["ok"] and not d["up_to_date"] and gone
+              and gone["team_rel"].endswith("rule-one-renamed.md")
+              and gone.get("archived_to", "").startswith("archive/"))
+        check("归档页 previous 仍可逆查", gone and gone["previous"]
+              and gone["previous"].endswith("rule-one.md"))
+
+
+def learn_v2_team_e2e():
+    """v2 嵌套团队仓(内容在 wiki/ 子目录)+ 内容层相对 learned_from:
+    M 与 D 的 previous 都要命中(D 时文件已不在,必须纯字符串映射)。"""
+    print("\n== 3b) learn 端到端(v2 嵌套团队仓)==")
+    with tempfile.TemporaryDirectory() as td:
+        personal = os.path.join(td, "me")
+        team = os.path.join(td, "teamv2")
+        run_cli(["init", personal])
+        os.makedirs(os.path.join(team, "wiki", "domains", "x", "concepts"))
+        with open(os.path.join(team, "AGENTS.md"), "w") as f:
+            f.write("# 协议\n")
+        page = os.path.join(team, "wiki", "domains", "x", "concepts", "p.md")
+        with open(page, "w") as f:
+            f.write("# p\n内容\n")
+        git(team, "init", "-q")
+        git(team, "add", "-A")
+        git(team, "commit", "-qm", "init v2 team")
+
+        # 个人库已学页用「内容层相对」写法(不带 wiki/ 前缀)
+        ldir = os.path.join(personal, "domains", "x", "concepts")
+        os.makedirs(ldir)
+        with open(os.path.join(ldir, "p.md"), "w") as f:
+            f.write("---\nlearned_from: domains/x/concepts/p.md\nlearned_commit: x\n---\n# p(已学)\n")
+
+        r = run_cli(["--root", personal, "--json", "learn", "--team", team])
+        d = json.loads(r.stdout)
+        pg = next((p for p in d["pages"] if p["team_rel"].endswith("p.md")), None)
+        check("v2 团队仓首学列出内容层页", d["ok"] and pg is not None)
+        check("内容层相对 learned_from 命中 previous", pg and pg["previous"])
+        run_cli(["--root", personal, "learn", "--team", team, "--mark", d["head"]])
+
+        git(team, "rm", "-q", "wiki/domains/x/concepts/p.md")
+        git(team, "commit", "-qm", "remove p")
+        r = run_cli(["--root", personal, "--json", "learn", "--team", team])
+        d = json.loads(r.stdout)
+        gone = next((p for p in d["pages"] if p["status"] == "D"), None)
+        check("v2 团队仓 D 页 previous 纯字符串命中", gone and gone["previous"])
 
 
 # ---------- 4. wiki-init 端到端(隔离 HOME)----------
@@ -310,8 +519,10 @@ def skill_descriptions():
 
 def main():
     unit_tests()
+    unit_tests_v31()
     cli_e2e()
     learn_e2e()
+    learn_v2_team_e2e()
     init_e2e()
     skill_descriptions()
     failed = [n for n, ok, _ in RESULTS if not ok]

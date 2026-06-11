@@ -12,6 +12,18 @@ ROOT_MARKERS = ("AGENTS.md", "_routes.md", "_vocabulary.md")
 # 遍历页面时排除的目录(.wiki 是工具产物区,raw 是只读原件区,均不算知识页)
 EXCLUDE_DIRS = {".git", ".obsidian", ".idea", ".claude", ".wiki", "raw", "node_modules"}
 
+# 库根层的协议/导航/台账文件:是基础设施不是知识(learn 不推送、search 默认不计分)
+INFRA_FILES = {"AGENTS.md", "_routes.md", "_vocabulary.md", "overview.md", "log.md", "README.md"}
+
+
+def is_root_infra(root: str, path: str) -> bool:
+    """path 是否为「库根/内容根层」的协议文件(深层同名文件不算,域内 README 是内容)。"""
+    base = os.path.basename(path)
+    if base not in INFRA_FILES:
+        return False
+    d = os.path.realpath(os.path.dirname(path))
+    return d in (os.path.realpath(root), os.path.realpath(content_dir(root)))
+
 # 机器级配置:安装时由 wiki-init 写入,记录个人库/团队仓位置。
 # 这是"裸跑 wiki-cli 不带 --root"时的兜底来源,取代旧版写死 ~/AI/wiki 的硬编码。
 CONFIG_PATH = os.path.expanduser("~/.flux-wiki.json")
@@ -119,27 +131,35 @@ def iter_pages(root: str, include_archive: bool = False) -> Iterator[str]:
 
     默认只扫 active 区:跳过 archive/(归档)、templates/(v2 旧库模板)、
     EXCLUDE_DIRS(.git/.wiki/raw 等)。include_archive=True 时连 archive 一起扫。
-    兼容 v2 旧库:从 content_dir 起扫(嵌套布局自动落到 <root>/wiki)。
+    兼容 v2 旧库:始终从 content_dir 起扫(嵌套布局自动落到 <root>/wiki);
+    v2 的 archive/ 在库根层,include_archive 时额外补扫——但绝不把库根层的
+    协议文件 / revisions 审计记录混进结果(它们不是知识页)。
     """
-    base = root if include_archive else content_dir(root)
-    for dirpath, dirnames, filenames in os.walk(base):
-        dirnames[:] = [d for d in dirnames if d not in EXCLUDE_DIRS]
-        rel = os.path.relpath(dirpath, base)
-        parts = set(rel.split(os.sep))
-        if "templates" in parts:
-            continue
-        dirnames[:] = [d for d in dirnames if d != "templates"]
-        if not include_archive:
-            if "archive" in parts:
+    def _walk(base: str, skip_archive: bool) -> Iterator[str]:
+        for dirpath, dirnames, filenames in os.walk(base):
+            dirnames[:] = [d for d in dirnames if d not in EXCLUDE_DIRS and d != "templates"]
+            parts = set(os.path.relpath(dirpath, base).split(os.sep))
+            if "templates" in parts:
                 continue
-            dirnames[:] = [d for d in dirnames if d != "archive"]
-        for fn in filenames:
-            if fn.endswith(".md"):
-                yield os.path.join(dirpath, fn)
+            if skip_archive:
+                if "archive" in parts:
+                    continue
+                dirnames[:] = [d for d in dirnames if d != "archive"]
+            for fn in filenames:
+                if fn.endswith(".md"):
+                    yield os.path.join(dirpath, fn)
+
+    content = content_dir(root)
+    yield from _walk(content, skip_archive=not include_archive)
+    root_archive = os.path.join(root, "archive")
+    if include_archive and content != root and os.path.isdir(root_archive):
+        yield from _walk(root_archive, skip_archive=False)
 
 
 def rel_path(root: str, path: str) -> str:
-    return os.path.relpath(path, root)
+    # 双侧 realpath:root 或 path 任一经过 symlink(macOS /tmp→/private/tmp)时,
+    # 避免输出 ../../../private/tmp/... 这种跨树相对路径
+    return os.path.relpath(os.path.realpath(path), os.path.realpath(root))
 
 
 # ---------- git 辅助(只读为主;pull 仅 learn --pull 使用) ----------
@@ -214,22 +234,65 @@ def git_behind_count(root: str) -> Tuple[Optional[int], str]:
         return None, f"git 不可用: {e}"
 
 
-def git_diff_name_status(root: str, since: str) -> Optional[List[Tuple[str, str]]]:
-    """since..HEAD 的净变更 [(status, rel_path)](A 新增/M 修改/D 删除/R 重命名)。失败返回 None。
+def git_diff_name_status(root: str, since: str) -> Optional[List[Tuple[str, str, Optional[str]]]]:
+    """since..HEAD 的净变更 [(status, rel_path, old_rel)]。失败返回 None。
 
-    --relative:root 是大仓子目录时,只看子目录内的变更且路径相对 root 输出
-    (调用方按 rel_path 拼绝对路径、做知识页过滤,都要求相对 root);root 即仓根时无影响。
+    status: A 新增 / M 修改 / D 删除 / R 重命名(带相似度,如 R100)。
+    rel_path 是当前路径(D 为被删路径);old_rel 仅 R/C 有值 = 改名前路径——
+    丢掉它会让「归档 = git mv 到 archive/」在调用方过滤后凭空消失,
+    也会让 previous 已学映射对不上旧路径(改名被误判为全新页)。
+    --relative:root 是大仓子目录时,只看子目录内的变更且路径相对 root 输出;root 即仓根时无影响。
     """
     try:
         r = _git(root, ["diff", "--relative", "--name-status", "-M", f"{since}..HEAD"], timeout=15)
         if r.returncode != 0:
             return None
-        out: List[Tuple[str, str]] = []
+        out: List[Tuple[str, str, Optional[str]]] = []
         for line in r.stdout.splitlines():
             parts = line.split("\t")
-            if len(parts) >= 2:
-                out.append((parts[0], parts[-1]))
+            if len(parts) < 2:
+                continue
+            status = parts[0]
+            if status[:1] in ("R", "C") and len(parts) >= 3:
+                out.append((status, parts[2], parts[1]))
+            else:
+                out.append((status, parts[-1], None))
         return out
+    except (subprocess.TimeoutExpired, FileNotFoundError):
+        return None
+
+
+def git_ls_md(root: str) -> Optional[List[str]]:
+    """已跟踪的 .md 列表(相对 root)。失败/非 git 仓返回 None。
+
+    learn 首次学习用它替代磁盘遍历:磁盘上未提交的页对增量学习者永远不可见,
+    首学也只列已提交内容,两种模式才是同一事实源(水位/learned_commit 不失真)。
+    """
+    try:
+        r = _git(root, ["ls-files", "--", "*.md"], timeout=10)
+        if r.returncode != 0:
+            return None
+        return [ln.strip() for ln in r.stdout.splitlines() if ln.strip()]
+    except (subprocess.TimeoutExpired, FileNotFoundError):
+        return None
+
+
+def git_rev_parse(root: str, ref: str) -> Optional[str]:
+    """把 ref(短哈希/分支名)展开为完整 commit 哈希;无效返回 None。"""
+    if not ref or not is_git_repo(root):
+        return None
+    try:
+        r = _git(root, ["rev-parse", "--verify", "--quiet", ref + "^{commit}"], timeout=5)
+        return r.stdout.strip() or None if r.returncode == 0 else None
+    except (subprocess.TimeoutExpired, FileNotFoundError):
+        return None
+
+
+def git_is_ancestor(root: str, ancestor: str, descendant: str) -> Optional[bool]:
+    """ancestor 是否为 descendant 的祖先(水位是否还在当前分支历史上)。失败返回 None。"""
+    try:
+        r = _git(root, ["merge-base", "--is-ancestor", ancestor, descendant], timeout=5)
+        return r.returncode == 0
     except (subprocess.TimeoutExpired, FileNotFoundError):
         return None
 

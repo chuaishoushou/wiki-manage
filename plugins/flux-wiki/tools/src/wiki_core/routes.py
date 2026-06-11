@@ -57,8 +57,15 @@ def parse_routes(root: str) -> List[Route]:
         if set(s.replace("|", "").replace("-", "").replace(":", "").strip()) == set():
             in_table = True
             continue
-        cells = [c for c in _split_cells(s) if c != ""]
-        if len(cells) < 2:
+        # 只剥掉行首/行尾 | 产生的边界空 cell;**内部空 cell 必须保留**——
+        # 否则 `| kw |  | x.md |`(必加载留空)会让可选列移位顶替成必加载,
+        # 触发 route-missing 这一唯一 error 级检查的误报
+        cells = _split_cells(s)
+        if s.startswith("|") and cells and cells[0] == "":
+            cells = cells[1:]
+        if s.endswith("|") and cells and cells[-1] == "":
+            cells = cells[:-1]
+        if len(cells) < 2 or all(c == "" for c in cells):
             continue
         # 表头行在分隔行之前,此时 in_table 仍为 False → 由下行直接跳过。
         # (不再用"含'触发关键词'子串"判表头,避免误删恰好含该子串的合法数据行。)
@@ -105,10 +112,32 @@ def missing_targets(root: str, routes: List[Route]) -> List[Tuple[int, str]]:
     return missing
 
 
+def _resolve_optional(root: str, r: Route, p: str) -> str:
+    """可选加载路径的解析基准:**必加载页所在目录**(写短名即可,如 `code-map.md`);
+    按根相对写也兼容(两种基准任一命中即有效)。"""
+    if r.required:
+        cand = os.path.join(root, os.path.dirname(r.required[0]), p)
+        if os.path.isfile(cand):
+            return cand
+    return os.path.join(root, p)
+
+
+def missing_optional(root: str, routes: List[Route]) -> List[Tuple[int, str]]:
+    """返回 (行号, 解析不到的可选加载路径)——按可选列双基准都找不到才算。"""
+    missing = []
+    for r in routes:
+        for p in r.optional:
+            if not os.path.isfile(_resolve_optional(root, r, p)):
+                missing.append((r.lineno, p))
+    return missing
+
+
 def covered_paths(root: str, routes: List[Route]) -> set:
     """所有被路由覆盖(必加载或可选加载)的绝对路径集合。"""
     paths = set()
     for r in routes:
-        for p in r.required + r.optional:
+        for p in r.required:
             paths.add(os.path.abspath(os.path.join(root, p)))
+        for p in r.optional:
+            paths.add(os.path.abspath(_resolve_optional(root, r, p)))
     return paths
