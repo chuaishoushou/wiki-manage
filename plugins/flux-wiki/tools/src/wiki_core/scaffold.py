@@ -158,7 +158,7 @@ def scaffold(target: str, domains: Optional[List[str]] = None, date: str = "",
             "created": [], "skipped": [], "already_complete": True,
             "note": ("检测到 v2 旧布局(根下有 wiki/ 内容层)。库可继续使用;"
                      "建议迁移到 v3 扁平结构:把 wiki/ 下的 domains 等目录上移到库根,"
-                     "详见 wiki-manage README 的「v2 → v3 迁移」。"),
+                     "详见 wiki-manage docs/INSTALL.md 的「v2 → v3 迁移」。"),
         }
 
     created: List[str] = []

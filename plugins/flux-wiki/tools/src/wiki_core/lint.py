@@ -4,12 +4,15 @@ v3 体检哲学:**lint 是服务,不是管教**。
 - error 只留"会让 AI 操作失败"的硬伤:_routes.md 指向不存在的文件。
 - 其余(死链/重名/路由歧义/溯源残缺/旧布局)一律 warn。
 - 用户自建目录、自由组织、无 frontmatter 的页:**不报任何问题**。
+- 词表闭集校验只在用户自己放了 _vocabulary.md(含机器可读 JSON 块)时启用——
+  协议是用户立的,lint 才替他守;没立协议的库零噪音。
 """
 from __future__ import annotations
 
+import json
 import os
 import re
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 from urllib.parse import unquote
 
 from . import frontmatter, repo, routes as routes_mod
@@ -129,6 +132,75 @@ def _check_provenance(root: str) -> List[Dict[str, str]]:
     return issues
 
 
+_JSON_FENCE = re.compile(r"```json\s*\n(.*?)\n```", re.S)
+
+
+def load_vocabulary(root: str) -> Optional[Dict[str, Any]]:
+    """读 _vocabulary.md 里第一个 ```json 块(机器可读规则源)。没有/坏了返回 None。"""
+    for base in (root, repo.content_dir(root)):
+        p = os.path.join(base, "_vocabulary.md")
+        if not os.path.isfile(p):
+            continue
+        try:
+            with open(p, "r", encoding="utf-8") as f:
+                m = _JSON_FENCE.search(f.read())
+            if not m:
+                return None
+            data = json.loads(m.group(1))
+            return data if isinstance(data, dict) else None
+        except (OSError, UnicodeDecodeError, json.JSONDecodeError):
+            return None
+    return None
+
+
+def _check_vocabulary(root: str) -> List[Dict[str, str]]:
+    """词表闭集校验(警告级,按字段聚合防刷屏):
+    - required_frontmatter 声明的必填字段缺失
+    - enum_fields 闭集字段取值越界
+    只检查「有 frontmatter 的页」——无 frontmatter 是自由页,按哲学不报。
+    """
+    vocab = load_vocabulary(root)
+    if not vocab:
+        return []
+    required = [str(k) for k in vocab.get("required_frontmatter") or []]
+    enums = {k: set(map(str, v)) for k, v in (vocab.get("enum_fields") or {}).items()
+             if isinstance(v, list)}
+    if not required and not enums:
+        return []
+    missing: Dict[str, List[str]] = {}
+    bad_enum: Dict[str, List[str]] = {}
+    for path in repo.iter_pages(root):
+        try:
+            meta, _, has_fm = frontmatter.read_page(path)
+        except (OSError, UnicodeDecodeError):
+            continue
+        if not has_fm:
+            continue
+        rel = repo.rel_path(root, path)
+        if repo.is_root_infra(root, path):
+            continue
+        for k in required:
+            if k not in meta or meta.get(k) in ("", [], None):
+                missing.setdefault(k, []).append(rel)
+        for k, allowed in enums.items():
+            v = meta.get(k)
+            if v in ("", [], None) or v is None or k not in meta:
+                continue
+            vals = v if isinstance(v, list) else [v]
+            if any(str(x) not in allowed for x in vals):
+                bad_enum.setdefault(k, []).append(rel)
+    issues: List[Dict[str, str]] = []
+    for k, rels in sorted(missing.items()):
+        sample = ", ".join(rels[:8]) + (" …" if len(rels) > 8 else "")
+        issues.append(issue("warn", "vocab-missing-field",
+                            f"_vocabulary 声明必填字段 `{k}` 缺失: {len(rels)} 页({sample})", ""))
+    for k, rels in sorted(bad_enum.items()):
+        sample = ", ".join(rels[:8]) + (" …" if len(rels) > 8 else "")
+        issues.append(issue("warn", "vocab-enum-violation",
+                            f"字段 `{k}` 取值不在 _vocabulary 闭集内: {len(rels)} 页({sample})", ""))
+    return issues
+
+
 def _check_layout(root: str) -> List[Dict[str, str]]:
     if repo.is_legacy_layout(root):
         # 用户已明确拍板保留 v2 时放置确认标记,避免每次体检的永久噪音
@@ -136,7 +208,7 @@ def _check_layout(root: str) -> List[Dict[str, str]]:
             return []
         return [issue("warn", "legacy-layout",
                       "v2 嵌套布局(根下有 wiki/ 内容层)。可继续用;"
-                      "建议迁到 v3 扁平结构(见 wiki-manage README「v2 → v3 迁移」);"
+                      "建议迁到 v3 扁平结构(见 wiki-manage docs/INSTALL.md「v2 → v3 迁移」);"
                       "确定保留 v2 可建空文件 .wiki/ack-legacy-layout 静默本提示", "wiki/")]
     return []
 
@@ -148,6 +220,7 @@ def lint(root: str) -> Dict[str, Any]:
         {"name": "dead-links", "issues": _check_dead_links(root)},
         {"name": "duplicates", "issues": _check_duplicates(root)},
         {"name": "provenance", "issues": _check_provenance(root)},
+        {"name": "vocabulary", "issues": _check_vocabulary(root)},
         {"name": "layout", "issues": _check_layout(root)},
     ]
     page_count = sum(1 for _ in repo.iter_pages(root))

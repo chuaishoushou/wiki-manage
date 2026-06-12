@@ -9,8 +9,8 @@ from typing import Any, Dict, Iterator, List, Optional, Tuple
 # 识别 wiki 根的标记文件(任一存在即认为是 wiki 根;_routes/_vocabulary 兼容 v2 旧库)
 ROOT_MARKERS = ("AGENTS.md", "_routes.md", "_vocabulary.md")
 
-# 遍历页面时排除的目录(.wiki 是工具产物区,raw 是只读原件区,均不算知识页)
-EXCLUDE_DIRS = {".git", ".obsidian", ".idea", ".claude", ".wiki", "raw", "node_modules"}
+# 遍历页面时排除的目录(.wiki 是工具产物区,raw 是只读原件区,revisions 是审计区,均不算知识页)
+EXCLUDE_DIRS = {".git", ".obsidian", ".idea", ".claude", ".wiki", "raw", "revisions", "node_modules"}
 
 # 库根层的协议/导航/台账文件:是基础设施不是知识(learn 不推送、search 默认不计分)
 INFRA_FILES = {"AGENTS.md", "_routes.md", "_vocabulary.md", "overview.md", "log.md", "README.md"}
@@ -39,13 +39,120 @@ def load_config() -> Dict[str, Any]:
         return {}
 
 
+def atomic_write_text(path: str, text: str):
+    """原子写(同目录 tmp + os.replace):截断式 open('w') 在进程被杀/磁盘满时会把
+    文件留成空壳;配置里有 installed_files 清单,清零等于卸载/巡检失去唯一依据。"""
+    tmp = path + ".tmp-flux"
+    with open(tmp, "w", encoding="utf-8") as f:
+        f.write(text)
+    os.replace(tmp, path)
+
+
+def _write_config(data: Dict[str, Any]):
+    """整体写配置文件(覆盖)。需要删键的调用方用它,save_config 只做合并。
+    旧文件在场时先留一份 .bak(配置损坏被静默读成 {} 后,一次 save 会把
+    teams/manifest 全部抹掉——.bak 是最后的找回手段)。"""
+    if os.path.isfile(CONFIG_PATH):
+        try:
+            import shutil
+            shutil.copy2(CONFIG_PATH, CONFIG_PATH + ".bak")
+        except OSError:
+            pass
+    atomic_write_text(CONFIG_PATH, json.dumps(data, ensure_ascii=False, indent=2) + "\n")
+
+
 def save_config(updates: Dict[str, Any]):
     """合并写机器级配置(只更新给到的键)。"""
     data = load_config()
     data.update(updates)
-    with open(CONFIG_PATH, "w", encoding="utf-8") as f:
-        json.dump(data, f, ensure_ascii=False, indent=2)
-        f.write("\n")
+    _write_config(data)
+
+
+# ---------- 团队仓配置(config v2:命名多仓列表) ----------
+#
+# v2 形态:cfg["teams"] = [{"name", "path", "branch", "exclude": [glob...]}, ...]
+# v1 兼容:只有 cfg["team_root"] 时合成单仓列表(name=目录名,无 branch/exclude)。
+# 这是 learn 多仓化与 doctor 巡检的统一读取口,任何地方不要再直接读 team_root。
+
+def get_teams(cfg: Optional[Dict[str, Any]] = None) -> List[Dict[str, Any]]:
+    cfg = cfg if cfg is not None else load_config()
+    teams = cfg.get("teams")
+    out: List[Dict[str, Any]] = []
+    if isinstance(teams, list):
+        for t in teams:
+            if isinstance(t, dict) and t.get("path"):
+                path = os.path.abspath(os.path.expanduser(str(t["path"])))
+                out.append({"name": t.get("name") or os.path.basename(path),
+                            "path": path,
+                            "branch": t.get("branch") or "",
+                            "exclude": [str(x) for x in t.get("exclude") or []]})
+        return out
+    legacy = cfg.get("team_root")
+    if legacy:
+        path = os.path.abspath(os.path.expanduser(str(legacy)))
+        out.append({"name": os.path.basename(path), "path": path, "branch": "", "exclude": []})
+    return out
+
+
+def resolve_team(spec: Optional[str], teams: List[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+    """把 --team 参数解析成团队仓配置:先按配置名精确匹配,再按路径;
+    都不是则当作临时路径(无 branch/exclude 约束)。spec 为空返回 None。"""
+    if not spec:
+        return None
+    for t in teams:
+        if spec == t["name"]:
+            return t
+    ab = os.path.abspath(os.path.expanduser(spec))
+    for t in teams:
+        if ab == t["path"]:
+            return t
+    return {"name": os.path.basename(ab), "path": ab, "branch": "", "exclude": []}
+
+
+def upsert_team(name: str, path: Optional[str] = None, branch: Optional[str] = None,
+                exclude: Optional[List[str]] = None) -> Dict[str, Any]:
+    """新增/更新一个命名团队仓配置(写 ~/.flux-wiki.json 的 teams 列表)。"""
+    cfg = load_config()
+    teams = [t for t in (cfg.get("teams") or []) if isinstance(t, dict)]
+    if not teams and cfg.get("team_root"):
+        legacy = os.path.abspath(os.path.expanduser(str(cfg["team_root"])))
+        teams = [{"name": os.path.basename(legacy), "path": legacy}]
+    hit = next((t for t in teams if t.get("name") == name), None)
+    if hit is None:
+        hit = {"name": name}
+        teams.append(hit)
+    if path is not None:
+        hit["path"] = os.path.abspath(os.path.expanduser(path))
+    if branch is not None:
+        hit["branch"] = branch
+    if exclude is not None:
+        hit["exclude"] = exclude
+    if not hit.get("path"):
+        raise ValueError(f"团队仓 {name} 缺 path(新增时 --path 必填)")
+    cfg["teams"] = teams
+    cfg.pop("team_root", None)  # v1 键升级后移除,避免两处真源
+    _write_config(cfg)
+    return hit
+
+
+def remove_team(name: str) -> bool:
+    cfg = load_config()
+    teams = [t for t in (cfg.get("teams") or []) if isinstance(t, dict)]
+    if not teams and cfg.get("team_root"):
+        # v1 配置(只有 team_root):合成仓名是目录名,命中即删 v1 键
+        legacy = os.path.abspath(os.path.expanduser(str(cfg["team_root"])))
+        if name in (os.path.basename(legacy), legacy, str(cfg["team_root"])):
+            cfg.pop("team_root", None)
+            cfg["teams"] = []
+            _write_config(cfg)
+            return True
+        return False
+    kept = [t for t in teams if t.get("name") != name]
+    if len(kept) == len(teams):
+        return False
+    cfg["teams"] = kept
+    _write_config(cfg)
+    return True
 
 
 def find_wiki_root_verbose(start: Optional[str] = None) -> Tuple[Optional[str], str]:
@@ -160,6 +267,37 @@ def rel_path(root: str, path: str) -> str:
     # 双侧 realpath:root 或 path 任一经过 symlink(macOS /tmp→/private/tmp)时,
     # 避免输出 ../../../private/tmp/... 这种跨树相对路径
     return os.path.relpath(os.path.realpath(path), os.path.realpath(root))
+
+
+def revisions_dir(root: str) -> str:
+    """审计文件目录:v2 协议库根下已有 revisions/ 就用它,否则用 .wiki/revisions/。"""
+    legacy = os.path.join(root, "revisions")
+    if os.path.isdir(legacy):
+        return legacy
+    return os.path.join(root, ".wiki", "revisions")
+
+
+def write_revision(root: str, op: str, lines: List[str]) -> str:
+    """落一份审计文件(learn --mark / 全库 lint 的成功路径自动调用,续上审计链)。
+
+    返回写入的绝对路径。文件名 <YYYY-MM-DD>-<HHMMSS>-<op>.md,与既有 revisions 命名一致。
+    """
+    from datetime import datetime
+    now = datetime.now()
+    d = revisions_dir(root)
+    os.makedirs(d, exist_ok=True)
+    base = os.path.join(d, f"{now.strftime('%Y-%m-%d')}-{now.strftime('%H%M%S')}-{op}")
+    path = base + ".md"
+    seq = 1
+    while os.path.exists(path):  # 同秒同 op 不覆盖前一份审计(审计链绝不丢档)
+        seq += 1
+        path = f"{base}-{seq}.md"
+    body = [f"# {op} | {now.strftime('%Y-%m-%d %H:%M:%S')}", "",
+            "> 本文件由 wiki-cli 在操作成功后自动生成(审计链,勿手改)。", ""]
+    body.extend(lines)
+    with open(path, "w", encoding="utf-8") as f:
+        f.write("\n".join(body) + "\n")
+    return path
 
 
 # ---------- git 辅助(只读为主;pull 仅 learn --pull 使用) ----------
@@ -293,6 +431,21 @@ def git_is_ancestor(root: str, ancestor: str, descendant: str) -> Optional[bool]
     try:
         r = _git(root, ["merge-base", "--is-ancestor", ancestor, descendant], timeout=5)
         return r.returncode == 0
+    except (subprocess.TimeoutExpired, FileNotFoundError):
+        return None
+
+
+def git_last_change(root: str, rel: str) -> Optional[str]:
+    """rel(相对 root)在当前 HEAD 历史上最后一次变更的 commit。失败返回 None。
+
+    learn --verify 用它判定 M 页是否真消化了**最新**变更:learned_commit 只比
+    水位新、但比页面最后变更旧时,中间那次更新其实没学,纯水位比较会误判已核销。
+    """
+    try:
+        r = _git(root, ["log", "-1", "--format=%H", "HEAD", "--", rel], timeout=10)
+        if r.returncode != 0:
+            return None
+        return r.stdout.strip() or None
     except (subprocess.TimeoutExpired, FileNotFoundError):
         return None
 

@@ -6,8 +6,11 @@ REM    git clone https://github.com/chuaishoushou/wiki-manage.git %USERPROFILE%\
 REM    cd %USERPROFILE%\AI\wiki-manage
 REM    .\install.cmd
 REM
-REM  人和 AI 同一条命令:终端里逐项确认路径(回车用默认);
-REM  非终端直接用默认/参数。可选参数原样透传 bin\wiki-init。
+REM  人和 AI 同一条命令。个人库与团队仓位置强制必填:终端里逐项必答
+REM  (回车只能用明确显示的默认值);非终端(AI/CI)缺任一项报错退出 rc=2,
+REM  绝不静默用默认 —— AI 应先向用户询问两个位置再带参数重跑:
+REM    .\install.cmd --personal-root %USERPROFILE%\AI\wiki --team-root ^<团队仓^>
+REM  参数原样透传 bin\wiki-init。
 REM ============================================================
 setlocal
 set "HERE=%~dp0"
