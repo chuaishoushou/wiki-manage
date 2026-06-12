@@ -61,7 +61,8 @@ date_created: {date}
 
 
 def _overview_md(domains: List[str], date: str) -> str:
-    items = "\n".join(f"- [{d}](domains/{d}/) — （一句话描述）" for d in domains) or "- （还没有主题;建第一个:`domains/<主题>/`）"
+    items = ("\n".join(f"- [{d}](domains/{d}/) — （一句话描述）" for d in domains)
+             or "- （还没有主题。建第一个 `domains/<主题>/` 后,把本行替换成:`- [主题](domains/主题/) — 一句话描述`）")
     return f"""---
 date_created: {date}
 ---

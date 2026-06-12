@@ -167,7 +167,8 @@ def diff(personal_root: str, team_root: Optional[str], do_pull: bool = False,
     team_root = os.path.abspath(os.path.expanduser(team_root))
     if not os.path.isdir(team_root):
         return {"ok": False, "reason": f"团队仓路径不存在: {team_root}"
-                                       "(团队仓被移动/重构过?用 wiki-cli config team 改一行即可)"}
+                                       "(团队仓被移动/重构过?wiki-cli config team <名> --path <新路径>"
+                                       " 改一行即可,仓名看 wiki-cli doctor)"}
 
     pull_note = ""
     if do_pull:
@@ -288,6 +289,54 @@ def diff(personal_root: str, team_root: Optional[str], do_pull: bool = False,
     }
 
 
+def baseline(personal_root: str, team_root: str, exclude: Optional[List[str]] = None,
+             include_excluded: bool = False) -> Dict[str, Any]:
+    """列「从未学过的基线页」:团队仓已提交知识页 − 已带 learned_from 的页。
+
+    水位机制只看 since..HEAD 的 git 变更——首学时选择性跳过的页,只要团队侧
+    不再改动,就永远不会出现在增量清单里。本命令是回看这片盲区的唯一确定性入口。
+    """
+    team_root = os.path.abspath(os.path.expanduser(team_root or ""))
+    if not team_root or not os.path.isdir(team_root):
+        return {"ok": False, "reason": f"团队仓路径不存在: {team_root}"}
+    tracked = repo.git_ls_md(team_root)
+    if tracked is None:
+        return {"ok": False, "reason": f"团队仓不是 git 仓: {team_root}"}
+    learned = find_learned(personal_root)
+    pages: List[Dict[str, Any]] = []
+    excluded_count = 0
+    for rel in tracked:
+        rel_norm = rel.replace("\\", "/")
+        if not _is_knowledge_page(rel_norm):
+            continue
+        if _previous(learned, rel_norm):
+            continue
+        if exclude and match_exclude(rel_norm, exclude):
+            excluded_count += 1
+            if not include_excluded:
+                continue
+        ab = os.path.join(team_root, rel)
+        pages.append({"team_rel": rel_norm, "abs": ab if os.path.isfile(ab) else None})
+    pages.sort(key=lambda p: p["team_rel"])
+    return {"ok": True, "team_root": team_root, "pages": pages,
+            "excluded_count": excluded_count}
+
+
+def format_baseline(res: Dict[str, Any]) -> str:
+    if not res.get("ok"):
+        return f"❌ {res.get('reason')}"
+    lines = [f"基线盲区(从未学过的页): 团队仓 {res['team_root']},共 {len(res['pages'])} 页"]
+    for p in res["pages"]:
+        lines.append(f"  [未学] {p['team_rel']}")
+    if res.get("excluded_count"):
+        lines.append(f"  (另有 {res['excluded_count']} 页命中 exclude 规则未列,--all 可见)")
+    if not res["pages"]:
+        lines.append("  ✅ 没有盲区:已提交知识页全部学过(或被 exclude 分流)")
+    else:
+        lines.append("按 wiki-cli guide learn 手册第 3 步消化想补的页即可(不需要动水位)")
+    return "\n".join(lines)
+
+
 def verify(personal_root: str, team_root: str, exclude: Optional[List[str]] = None,
            branch_expect: str = "") -> Dict[str, Any]:
     """核销检查:当前待学清单里,哪些页已带 learned_from 真实落库(确定性,零 LLM)。
@@ -369,6 +418,13 @@ def format_verify(res: Dict[str, Any]) -> str:
         lines.append(f"  (另有 {res['excluded_count']} 页被 exclude 规则分流,不参与核销)")
     if res.get("all_clear"):
         lines.append("✅ 全部核销,通过(可 --mark 推进水位)")
+    elif res.get("first_time"):
+        # 首学是基线策展:选择性学习是常态,门禁不阻塞,绝不能引导用户用 --force。
+        # 不许撒谎说"留给以后":--mark 后未学页不会再出现在增量清单(水位只看变更),
+        # 回看盲区的入口是 learn --baseline。
+        lines.append(f"· {len(res['unverified'])} 页未学(首次学习允许选择性策展,不阻塞):"
+                     "消化完想学的页后直接 --mark 即可。注意:--mark 后未学页不会再自动出现,"
+                     "以后想补学用 wiki-cli learn --baseline 回看盲区")
     else:
         lines.append(f"❌ {len(res['unverified'])} 页未核销:补学并写 learned_from/learned_commit,"
                      "或确认放弃后 --mark --force(放弃原因记入 log.md)")

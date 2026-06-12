@@ -21,7 +21,7 @@ cd %USERPROFILE%\AI\wiki-manage
 - 安装**强制要求提供两个路径**:**个人库**与**团队仓**(已存在的 git clone,可给多个 `--team-root`)。终端逐项必答;AI / CI(非终端)必须带全参数,缺任一项报错 rc=2,绝不静默用默认:
   `./install.sh --personal-root ~/AI/wiki --team-root <团队仓路径>`
 - 重装 / 更新不必重复给参数:`~/.flux-wiki.json` 里上次的路径直接沿用。
-- 安装做的事:初始化个人库(幂等,绝不覆盖已有页)→ 写静态指针块(`~/.claude/CLAUDE.md` / `~/.codex/AGENTS.md`,重装整段替换)→ skill/命令 **symlink** 进 `~/.claude/` 与 `~/.agents/skills/`(Codex 与 Cursor 2.4+ 原生读后者,**Cursor 不再需要手动粘贴**)→ `~/.local/bin/wiki-cli` shim → Claude Code SessionStart 巡检 hook(全绿零输出,`--no-hook` 跳过)→ 写配置 + 安装清单 → **自验证**(doctor 全绿才算装好)。
+- 安装做的事:初始化个人库(幂等,绝不覆盖已有页)→ 写静态指针块(`~/.claude/CLAUDE.md` / `~/.codex/AGENTS.md`,重装整段替换)→ 3 个 skill **symlink** 进 `~/.claude/skills` 与 `~/.agents/skills`(Codex 与 Cursor 2.4+ 原生读后者,**Cursor 不再需要手动粘贴**;本机有 `~/.codex/skills` 时也链一份),斜杠命令链进 `~/.claude/commands` → `~/.local/bin/wiki-cli` shim → Claude Code SessionStart 巡检 hook(全绿零输出,`--no-hook` 跳过)→ 写配置 + 安装清单 → **自验证**(doctor 全绿才算装好)。
 - **本仓即运行时,装完不要删**。更新只需 `git -C ~/AI/wiki-manage pull`——部署物是链接,自动生效,无需重装。
 
 ## 日常使用
@@ -36,7 +36,7 @@ cd %USERPROFILE%\AI\wiki-manage
 | `new` | 加页骨架 |
 | `search` | 全文检索 |
 | `lint` | 内容体检(死链/路由/溯源/词表闭集;全库体检自动落 `revisions/` 审计) |
-| `learn` | 团队增量(`--pull` 拉最新;`--verify` 核销;`--mark` 记水位,**有核销门禁**;`--all` 看被分流页) |
+| `learn` | 团队增量(`--pull` 拉最新;`--verify` 核销;`--mark` 记水位,**有核销门禁**;`--all` 看被分流页;`--baseline` 回看从未学过的基线页) |
 | `status` | 库状态 |
 | `context` | 会话入口:库位置/团队仓/约定速查(运行时解析,取代烤死路径) |
 | `doctor` | 环境巡检:死路径/孤儿水位/部署物缺失,error 退出非 0(`--quick` 供 hook,零打扰) |
@@ -75,7 +75,7 @@ wiki-cli learn --pull        # 增量清单(exclude 自动分流机械内容)
 python3 plugins/flux-wiki/tools/bin/wiki-cli init /tmp/demo --domains backend
 python3 plugins/flux-wiki/tools/bin/wiki-cli --root /tmp/demo status
 
-# 一键自测(100 项,全部在临时目录 + 隔离 HOME,不碰真实配置)
+# 一键自测(120+ 项,全部在临时目录 + 隔离 HOME,不碰真实配置)
 python3 plugins/flux-wiki/tools/selftest.py
 ```
 

@@ -27,6 +27,20 @@ def _item(level: str, code: str, msg: str, fix: str = "") -> Dict[str, str]:
     return {"level": level, "code": code, "msg": msg, "fix": fix}
 
 
+def _pointer_stale(deployed_text: str) -> bool:
+    """已装指针块正文是否落后于仓内 adapters/pointer-body.md(措辞改版检测)。
+    比对失败(模板缺失等)按未过期处理——这是增强检测,不能自己制造误报。"""
+    tpl = os.path.join(SELF_MANAGE_ROOT, "adapters", "pointer-body.md")
+    try:
+        with open(tpl, "r", encoding="utf-8") as f:
+            expect = f.read().strip()
+        _, _, rest = deployed_text.partition(MARK_BEGIN)
+        block, _, _ = rest.partition("# === flux-wiki end ===")
+        return block.strip() != expect
+    except OSError:
+        return False
+
+
 def _check_personal(cfg: Dict[str, Any], items: List[Dict[str, str]]) -> Optional[str]:
     personal = cfg.get("personal_root")
     if not personal:
@@ -40,7 +54,7 @@ def _check_personal(cfg: Dict[str, Any], items: List[Dict[str, str]]) -> Optiona
         items.append(_item("error", "personal-root-invalid",
                            f"个人库路径无效(缺 AGENTS.md 等标记): {p}",
                            "库被移动了?wiki-cli config set personal_root <新路径>;"
-                           "或重跑安装"))
+                           f"或重跑 {SELF_MANAGE_ROOT}/install.sh"))
         return None
     items.append(_item("ok", "personal-root", f"个人库: {p}"))
     return p
@@ -137,14 +151,22 @@ def _check_manifest(cfg: Dict[str, Any], items: List[Dict[str, str]]):
         if typ == "block":
             try:
                 with open(path, "r", encoding="utf-8", errors="replace") as f:
-                    ok = MARK_BEGIN in f.read()
+                    text = f.read()
+                ok = MARK_BEGIN in text
             except OSError:
-                ok = False
-            if ok:
-                items.append(_item("ok", "pointer", f"指针块在场: {path}"))
-            else:
+                ok, text = False, ""
+            if not ok:
                 items.append(_item("error", "pointer-missing",
-                                   f"指针块丢失: {path}", "重跑 ./install.sh 恢复"))
+                                   f"指针块丢失: {path}",
+                                   f"重跑 {SELF_MANAGE_ROOT}/install.sh 恢复"))
+            elif _pointer_stale(text):
+                # 「git pull 即更新」的唯一例外是指针正文措辞改版——没人帮用户发现
+                # 这个例外的话,三平台会静默跑旧指令;在这里把例外变成报警闭环。
+                items.append(_item("warn", "pointer-stale",
+                                   f"指针块措辞已过期(仓内 pointer-body.md 已更新): {path}",
+                                   f"重跑 {SELF_MANAGE_ROOT}/install.sh(幂等,整段替换)"))
+            else:
+                items.append(_item("ok", "pointer", f"指针块在场: {path}"))
         elif typ == "link":
             if os.path.islink(path):
                 if os.path.exists(path):
@@ -206,11 +228,16 @@ def format_report(rep: Dict[str, Any], quick: bool = False) -> str:
         lines.append(f"{mark.get(i['level'], '·')} {i['msg']}")
         if i["fix"] and i["level"] != "ok":
             lines.append(f"   ↳ 修复: {i['fix']}")
+    has_fix = any(i["fix"] and i["level"] != "ok" for i in rep["items"])
     if quick:
         if not lines:
             return ""
-        return "\n".join(["[flux-wiki doctor] 知识库环境有问题(不影响本会话,但 wiki 操作可能失败):",
-                          *lines])
+        out = ["[flux-wiki doctor] 知识库环境有问题(不影响本会话,但 wiki 操作可能失败):", *lines]
+        if has_fix:
+            out.append("(修复命令里的 wiki-cli 不在 PATH 时,用 ~/.local/bin/wiki-cli)")
+        return "\n".join(out)
+    if has_fix:
+        lines.append("(修复命令里的 wiki-cli 不在 PATH 时,用 ~/.local/bin/wiki-cli)")
     lines.append(f"\ndoctor: {rep['errors']} 错误 / {rep['warns']} 警告")
     return "\n".join(lines)
 
@@ -263,5 +290,7 @@ def format_context(ctx: Dict[str, Any]) -> str:
         lines.append("团队仓  : 未配置(wiki-cli config team <名> --path <路径> 登记)")
     lines.append("约定    : 记知识 → <写入层>/domains/<主题>/ 并在库根 log.md 追加一行;"
                  "删除 = mv 进 archive/,绝不 rm;raw/ 只读;协议真源 = 库根 AGENTS.md")
-    lines.append("手册    : wiki-cli guide <ingest|learn|lint|query>(操作前先拿手册照做)")
+    lines.append("手册    : wiki-cli guide <ingest|learn|lint|query|help>(操作前先拿手册照做)")
+    cli = os.path.join(SELF_MANAGE_ROOT, "plugins", "flux-wiki", "tools", "bin", "wiki-cli")
+    lines.append(f"工具    : wiki-cli = ~/.local/bin/wiki-cli(不在 PATH 时)= python3 \"{cli}\"")
     return "\n".join(lines)

@@ -6,7 +6,7 @@ allowed-tools: Read, Grep, Glob, Write, Edit, Bash(git:*), Bash(python3:*), Bash
 
 # wiki-ingest:记知识进个人库
 
-> 工具 `wiki-cli`:优先用 `~/.local/bin/wiki-cli`;不存在时读 `~/.flux-wiki.json` 的 `wiki_manage` 字段,用 `python3 <wiki_manage>/plugins/flux-wiki/tools/bin/wiki-cli`。
+> 工具 `wiki-cli`:shim 已装在 `~/.local/bin`(在 PATH 时直接 `wiki-cli`,否则用全路径 `~/.local/bin/wiki-cli`);都不行就读 `~/.flux-wiki.json` 的 `wiki_manage` 字段,用 `python3 <wiki_manage>/plugins/flux-wiki/tools/bin/wiki-cli`。
 > 本 skill 是入口不是手册。库的位置、写入层、流程细节都**不要凭记忆**:
 
 1. 跑 `wiki-cli guide ingest` 拿当前手册(已注入本机真实路径),**严格照做**。

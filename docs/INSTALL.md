@@ -45,7 +45,7 @@ wiki-cli doctor
 ```bash
 cd ~/AI/wiki-manage && ./install.sh --uninstall
 ```
-按安装清单精确移除:指针块、skill/命令链接、shim、hook、配置。**个人库与团队仓(你的数据)不动**;本仓自行决定去留。安装时被备份让位的旧文件在 `.flux-wiki-backup-*` 目录里,确认无用后自行删除。
+按安装清单精确移除:指针块、skill/命令链接、shim、hook、配置。**个人库与团队仓(你的数据)不动**;本仓自行决定去留。安装/卸载时被备份让位的旧文件在 `~/.flux-wiki-backups/<时间戳>/` 里(整文件备份在原文件旁,形如 `*.bak-flux-*`),确认无用后自行删除。
 
 ## 旧版(无清单)产物手动清理
 
@@ -73,7 +73,7 @@ wiki-cli lint         # 迁完体检确认
 
 ## v3 → v4 变化(老用户)
 
-- 渲染复制的 skill/命令副本 → symlink(重装时旧副本自动挪进 `~/.claude/skills/.flux-wiki-backup-*`,不删除)。
+- 渲染复制的 skill/命令副本 → symlink(重装时旧副本自动挪进 `~/.flux-wiki-backups/<时间戳>/`,不删除;备份刻意放在 AI 工具扫描路径之外,避免被当作幽灵 skill 扫出来)。
 - 指针块从"烤死绝对路径"→ 静态零路径;路径漂移由 `doctor` 巡检 + `config` 修复,不再靠重装。
 - 配置 `team_root`(单仓)→ `teams` 列表(多仓,带 branch/exclude);重跑安装自动迁移。
 - Cursor 手动粘贴 User Rules 步骤移除(2.4+ 原生读 `~/.agents/skills`);曾粘过的旧规则文本请自行去设置里删一次。

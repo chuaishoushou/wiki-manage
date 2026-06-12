@@ -223,7 +223,7 @@ def lint(root: str) -> Dict[str, Any]:
         {"name": "vocabulary", "issues": _check_vocabulary(root)},
         {"name": "layout", "issues": _check_layout(root)},
     ]
-    page_count = sum(1 for _ in repo.iter_pages(root))
+    page_count = sum(1 for p in repo.iter_pages(root) if not repo.is_root_infra(root, p))
     all_issues = [i for s in sections for i in s["issues"]]
     errors = sum(1 for i in all_issues if i["level"] == "error")
     warns = sum(1 for i in all_issues if i["level"] == "warn")

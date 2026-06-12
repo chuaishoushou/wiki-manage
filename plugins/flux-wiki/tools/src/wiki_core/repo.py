@@ -303,7 +303,11 @@ def write_revision(root: str, op: str, lines: List[str]) -> str:
 # ---------- git 辅助(只读为主;pull 仅 learn --pull 使用) ----------
 
 def _git(root, args, timeout=10):
-    return subprocess.run(["git", "-C", root, *args], capture_output=True, text=True, timeout=timeout)
+    # core.quotepath=off:git 默认把非 ASCII 文件名转义成 "\347\211\210..." 带引号形态,
+    # endswith(".md") 过滤会把它们静默丢掉——中文团队仓的《版本日志.md》这类页
+    # 会对 learn 全链路(首学/增量/核销)隐身且零报警(真实团队仓实测踩中)。
+    return subprocess.run(["git", "-C", root, "-c", "core.quotepath=off", *args],
+                          capture_output=True, text=True, timeout=timeout)
 
 
 def is_git_repo(root: str) -> bool:
@@ -346,12 +350,19 @@ def git_commit_exists(root: str, commit: str) -> bool:
 
 
 def git_pull(root: str) -> Tuple[bool, str]:
-    """git pull --ff-only:只快进,不制造合并提交;本地有偏离则失败而非乱合并。"""
+    """git pull --ff-only:只快进,不制造合并提交;本地有偏离则失败而非乱合并。
+
+    失败信息压成一行:git 原生多行报错(如"没有跟踪信息"教程式输出)会让照手册
+    执行的 AI 误判环境损坏跑去 set-upstream;无远端本就正常,继续用本地内容即可。
+    """
     if not is_git_repo(root):
         return False, "非 git 仓(无 .git),跳过 pull"
     try:
         r = _git(root, ["pull", "--ff-only"], timeout=60)
-        return r.returncode == 0, (r.stderr.strip() or r.stdout.strip() or "ok")
+        if r.returncode == 0:
+            return True, (r.stdout.strip().splitlines() or ["ok"])[0]
+        first = ((r.stderr.strip() or r.stdout.strip()).splitlines() or ["失败"])[0]
+        return False, f"{first}(拉不到远端属正常——无远端/无跟踪分支时直接用本地内容继续)"
     except (subprocess.TimeoutExpired, FileNotFoundError) as e:
         return False, f"git pull 失败: {e}"
 

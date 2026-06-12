@@ -9,7 +9,7 @@
   status  当前库状态(根/布局/页数/主题/团队仓水位)  [别名 protocol]
   context 会话运行时入口:库位置/团队仓/约定速查(取代把路径烤死进部署物)
   doctor  环境巡检(死路径/孤儿水位/部署物缺失;error 退出非 0;--quick 供 hook,零打扰)
-  guide   现读现发操作手册(learn/ingest/lint/query;三平台同一份流程)
+  guide   现读现发操作手册(learn/ingest/lint/query/help;三平台同一份流程)
   config  机器级配置读写(personal_root / 团队仓多仓登记)
 """
 from __future__ import annotations
@@ -234,10 +234,15 @@ def cmd_learn(args):
         lines = [f"- 团队仓: [{team['name']}] {res['team_root']}",
                  f"- 水位: {ver.get('since') or '(首次)'} → {res['last_commit']}",
                  f"- 核销: ✅ {len(ver.get('verified') or [])} 页"
-                 f" / ❌ {len(ver.get('unverified') or [])} 页"
+                 f" / 未学 {len(ver.get('unverified') or [])} 页"
                  f" / 分流 {ver.get('excluded_count', 0)} 页"]
         if ver.get("unverified"):
-            lines.append("- ⚠ --force 放弃页(原因应记入 log.md):")
+            # 审计如实记录:首学的未学页是选择性策展(根本没用 --force),
+            # 只有增量轮被 --force 旁路的才标 --force(误标会让审计读者以为强推过)
+            if ver.get("first_time"):
+                lines.append("- 未学页(首学选择性策展;回看盲区: wiki-cli learn --baseline):")
+            else:
+                lines.append("- ⚠ --force 放弃页(原因应记入 log.md):")
             lines.extend(f"  - [{p['status']}] {p['team_rel']}" for p in ver["unverified"])
         rev = None
         try:
@@ -251,6 +256,21 @@ def cmd_learn(args):
         if rev:
             print(f"审计已落 {repo.rel_path(root, rev)}")
         return
+
+    if args.baseline:
+        targets = [repo.resolve_team(args.team, teams_cfg)] if args.team else teams_cfg
+        targets = [t for t in targets if t]
+        if not targets:
+            sys.stderr.write("错误:未配置团队仓(--team 或 config team 登记)。\n")
+            sys.exit(2)
+        results = [learn_mod.baseline(root, t["path"], exclude=t["exclude"],
+                                      include_excluded=args.all) for t in targets]
+        if args.json:
+            _emit(results[0] if len(results) == 1 else
+                  {"ok": all(r.get("ok") for r in results), "teams": results})
+        else:
+            print("\n\n".join(learn_mod.format_baseline(r) for r in results))
+        sys.exit(0 if all(r.get("ok") for r in results) else 1)
 
     if args.verify:
         targets = [repo.resolve_team(args.team, teams_cfg)] if args.team else teams_cfg
@@ -304,7 +324,8 @@ def cmd_status(args):
     domains_dir = os.path.join(content, "domains")
     domains = sorted(d for d in os.listdir(domains_dir)
                      if os.path.isdir(os.path.join(domains_dir, d))) if os.path.isdir(domains_dir) else []
-    page_count = sum(1 for _ in repo.iter_pages(root))
+    # 页数只算知识页:库根的协议/导航/台账文件随 init 自带,计入会让空库显示"4 页"
+    page_count = sum(1 for p in repo.iter_pages(root) if not repo.is_root_infra(root, p))
     teams = repo.get_teams(cfg)
     state = learn_mod.load_state(root)
     # 水位按团队仓多键存储(--team 学过的也在);全部列出,配置仓标注
@@ -510,6 +531,8 @@ def build_parser() -> argparse.ArgumentParser:
     sp.add_argument("--pull", action="store_true",
                     help="先对团队仓 git pull --ff-only(唯一会动团队仓的操作,只快进不合并)")
     sp.add_argument("--all", action="store_true", help="连 exclude 分流掉的页一起列")
+    sp.add_argument("--baseline", action="store_true",
+                    help="列从未学过的基线页(首学跳过的页不会再进增量清单,用这个回看盲区)")
     sp.add_argument("--verify", action="store_true", help="核销检查:待学清单是否都已带 learned_from 落库")
     sp.add_argument("--mark", metavar="COMMIT", help="记录学习水位(学习完成后调用;有核销门禁)")
     sp.add_argument("--force", action="store_true", help="核销未过仍强制 --mark(放弃页记入审计)")
@@ -526,7 +549,7 @@ def build_parser() -> argparse.ArgumentParser:
                     help="hook 模式:全绿零输出,有问题列出来;自身永远 exit 0")
     sp.set_defaults(func=cmd_doctor)
 
-    sp = sub.add_parser("guide", help="打印操作手册(learn/ingest/lint/query),照做即可")
+    sp = sub.add_parser("guide", help="打印操作手册(learn/ingest/lint/query/help),照做即可")
     sp.add_argument("op", help="learn / ingest / lint / query / help")
     sp.set_defaults(func=cmd_guide)
 

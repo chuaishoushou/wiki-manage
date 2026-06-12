@@ -205,8 +205,10 @@ def cli_e2e():
         r = run_cli(["--root", root, "--json", "status"])
         ok = r.returncode == 0
         payload = json.loads(r.stdout) if ok else {}
-        check("status JSON", ok and payload.get("layout") == "v3-flat"
-              and "backend" in payload.get("domains", []))
+        check("status JSON(页数只算知识页,不含协议脚手架)", ok
+              and payload.get("layout") == "v3-flat"
+              and "backend" in payload.get("domains", [])
+              and payload.get("page_count") == 1)
         # 路径穿越拦截
         r = run_cli(["--root", root, "lint", "../../etc/passwd"])
         check("路径穿越被拦/不读外部", r.returncode == 0 and "passwd" not in r.stdout)
@@ -528,6 +530,16 @@ def init_e2e():
               and "我的笔记" in new_text and "珍贵的后续内容" in new_text
               and new_text.count("flux-wiki begin") == 2)  # 笔记里 1 + 真块 1
 
+        # 指针块措辞过期检测:手改块内一个词 → doctor warn(「git pull 即更新」的
+        # 唯一例外是指针措辞改版,doctor 负责把这个例外变成报警)
+        perturbed = open(ptr, encoding="utf-8").read().replace("协议真源", "协议真原")
+        with open(ptr, "w", encoding="utf-8") as f:
+            f.write(perturbed)
+        r = subprocess.run([sys.executable, CLI, "doctor"], capture_output=True,
+                           text=True, env=env, timeout=60)
+        check("指针块措辞过期被 doctor 警告", r.returncode == 0
+              and "措辞已过期" in r.stdout)
+
         # 旧版渲染副本(非链接目录)让位:挪进备份,绝不删除
         old_skill = os.path.join(fake_home, ".claude", "skills", "wiki-ingest")
         if os.path.islink(old_skill):
@@ -789,6 +801,26 @@ def config_doctor_guide_e2e():
             f.write(f"---\nlearned_from: machine/gen-1.md\nlearned_commit: {head4}\n---\n# 已学(最新)\n")
         r = run_cli(["--root", personal, "learn", "--mark", head4], env=env)
         check("追到最新后核销放行", r.returncode == 0)
+
+        # 中文文件名页绝不能因 git quotepath 转义而对 learn 隐身
+        # (真实团队仓实测踩中:《版本日志.md》《OpenSpec_团队操作手册.md》从清单里消失)
+        with open(os.path.join(team, "domains", "shared", "版本日志.md"), "w") as f:
+            f.write("# 版本日志\n中文文件名页\n")
+        git(team, "add", "-A")
+        git(team, "commit", "-qm", "add 中文文件名页")
+        r = run_cli(["--root", personal, "--json", "learn"], env=env)
+        d = json.loads(r.stdout)
+        check("中文文件名页对 learn 可见(quotepath)", any(
+            p["team_rel"] == "domains/shared/版本日志.md" for p in d["pages"]))
+
+        # --baseline:首学/--force 跳过的页有确定性回看入口(水位机制的盲区补丁)
+        r = run_cli(["--root", personal, "--json", "learn", "--baseline"], env=env)
+        b = json.loads(r.stdout)
+        rels_b = [p["team_rel"] for p in b["pages"]]
+        check("learn --baseline 列从未学过的页", b["ok"]
+              and any("rule-three" in x for x in rels_b)      # --force 跳过的页
+              and not any("rule-one" in x for x in rels_b)    # 学过的不列
+              and not any("machine/gen-1" in x for x in rels_b))  # 已学的 machine 页不列
 
         # guide 坏环境硬失败:配置指向不存在的库 → rc=2 提示 doctor(安全网必须可触发)
         cfg = json.load(open(cfg_path))

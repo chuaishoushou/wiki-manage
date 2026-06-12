@@ -542,8 +542,8 @@ def uninstall(dry_run=False):
     if os.path.isfile(CONFIG_PATH):
         os.unlink(CONFIG_PATH)
         info(f"  ✅ 删除配置: {CONFIG_PATH}")
-    info("\n卸载完成。个人库与团队仓(你的数据)未动;备份目录(.flux-wiki-backup-*/.bak-flux-*)"
-         "留给你确认后自行清理;本仓(wiki-manage)自行决定去留。")
+    info("\n卸载完成。个人库与团队仓(你的数据)未动;备份(~/.flux-wiki-backups/ 与原文件旁的"
+         " *.bak-flux-*)留给你确认后自行清理;本仓(wiki-manage)自行决定去留。")
     return 0
 
 
@@ -607,13 +607,17 @@ def main():
         info("  ⚠ 未探测到 ~/.claude 或 ~/.codex,没有写指针(装好 AI 工具后重跑)")
 
     try:
-        # 3. skill / 命令(symlink;~/.agents/skills 是 Codex/Cursor 原生扫描的标准目录)
+        # 3. skill / 命令(symlink;~/.agents/skills 是 Codex/Cursor 原生扫描的标准目录;
+        #    本机 Codex 若还在用旧目录 ~/.codex/skills,顺手也链一份,版本差异两头兼容)
         info("\n— skill / 命令(symlink,git pull 即更新) —")
+        has_codex_skills = os.path.isdir(os.path.expanduser("~/.codex/skills"))
         for s in SKILLS:
             src = os.path.join(PLUGIN, "skills", s)
             deploy_link(src, os.path.expanduser(f"~/.agents/skills/{s}"), dry, manifest)
             if has_claude:
                 deploy_link(src, os.path.expanduser(f"~/.claude/skills/{s}"), dry, manifest)
+            if has_codex_skills:
+                deploy_link(src, os.path.expanduser(f"~/.codex/skills/{s}"), dry, manifest)
         if has_claude:
             for c in COMMANDS:
                 deploy_link(os.path.join(PLUGIN, "commands", c),
