@@ -49,7 +49,9 @@ MARK_BEGIN = "# === flux-wiki begin (auto by wiki-manage, 重装会整段替换)
 MARK_END = "# === flux-wiki end ==="
 MARK_LEGACY = "# === flux-wiki (auto by wiki-init) ==="  # 旧版块标记(append-once 时代)
 
-SKILLS = ("wiki-ingest", "wiki-query", "wiki-lint")
+SKILLS = ("flux-wiki",)
+# 已被合并/更名的历史 skill 名:安装时清理旧链接(是链接就摘,是实体目录就备份让位),防幽灵 skill
+LEGACY_SKILLS = ("wiki-ingest", "wiki-query", "wiki-lint")
 COMMANDS = ("wiki-help.md", "wiki-learn.md")
 # 识别本工具 hook 条目的特异指纹(完整调用形式,避免误删用户自己含 doctor --quick 字样的条目)
 HOOK_TAG = '"$HOME/.local/bin/wiki-cli" doctor --quick'
@@ -630,17 +632,32 @@ def main():
         info("  ⚠ 未探测到 ~/.claude 或 ~/.codex,没有写指针(装好 AI 工具后重跑)")
 
     try:
-        # 3. skill / 命令(symlink;~/.agents/skills 是 Codex/Cursor 原生扫描的标准目录;
-        #    本机 Codex 若还在用旧目录 ~/.codex/skills,顺手也链一份,版本差异两头兼容)
+        # 3. skill / 命令(symlink;主落点 ~/.claude/skills。~/.agents/skills(Codex/Cursor
+        #    原生扫描)与旧目录 ~/.codex/skills 都只在**该目录已存在**时才落链——本机没在用
+        #    其他 AI 工具就不主动创建多宿主目录)
         info("\n— skill / 命令(symlink,git pull 即更新) —")
+        has_agents_skills = os.path.isdir(os.path.expanduser("~/.agents/skills"))
         has_codex_skills = os.path.isdir(os.path.expanduser("~/.codex/skills"))
+        skill_hosts = [os.path.expanduser(p) for p, on in (
+            ("~/.claude/skills", has_claude),
+            ("~/.agents/skills", has_agents_skills),
+            ("~/.codex/skills", has_codex_skills)) if on]
         for s in SKILLS:
             src = os.path.join(PLUGIN, "skills", s)
-            deploy_link(src, os.path.expanduser(f"~/.agents/skills/{s}"), dry, manifest)
-            if has_claude:
-                deploy_link(src, os.path.expanduser(f"~/.claude/skills/{s}"), dry, manifest)
-            if has_codex_skills:
-                deploy_link(src, os.path.expanduser(f"~/.codex/skills/{s}"), dry, manifest)
+            for host in skill_hosts:
+                deploy_link(src, os.path.join(host, s), dry, manifest)
+        # 历史 skill 名清理:链接直接摘掉,实体目录备份让位(绝不删数据)
+        for s in LEGACY_SKILLS:
+            for host in skill_hosts:
+                p = os.path.join(host, s)
+                if not os.path.lexists(p):
+                    continue
+                if os.path.islink(p):
+                    if not dry:
+                        os.unlink(p)
+                    info(f"  🧹 摘除旧 skill 链接 {p}")
+                else:
+                    _backup(p, dry)
         if has_claude:
             for c in COMMANDS:
                 deploy_link(os.path.join(PLUGIN, "commands", c),
@@ -668,7 +685,7 @@ def main():
     ok = verify(personal, dry)
     if not dry and ok:
         info(f"\n🎉 安装完成。个人库:{personal};团队仓:{', '.join(t['name'] for t in teams)}。")
-        info("   日常:对 AI 说「记一下/查一下/学团队知识/体检」即可;Codex/Cursor 读 ~/.agents/skills 同样生效。")
+        info("   日常:对 AI 说「记一下/查一下/学团队知识/体检」即可;Codex/Cursor 若在用(存在 ~/.agents/skills 或 ~/.codex/skills)也已同步落链。")
         info("   机械内容分流(可选):wiki-cli config team <名> --exclude \"knowledge/database/**,openspec/changes/archive/**\"")
     sys.exit(0 if ok else 1)
 

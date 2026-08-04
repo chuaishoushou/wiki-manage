@@ -84,8 +84,8 @@ python3 plugins/flux-wiki/tools/selftest.py
 | 平台 | 得到 |
 |---|---|
 | Claude Code | 指针块 + skill/命令链接 + SessionStart 巡检 hook(环境漂移下个会话开头报警) |
-| Codex | 指针块(`~/.codex/AGENTS.md`)+ `~/.agents/skills`(原生扫描,`$wiki-ingest` 可显式调用);说同样的话走同一份手册 |
-| Cursor | 2.4+ 原生读 `~/.agents/skills`,零手动步骤(旧版手动粘贴流程已移除) |
+| Codex | 指针块(`~/.codex/AGENTS.md`)+ `~/.agents/skills`(原生扫描,`$flux-wiki` 可显式调用;**该目录已存在时才落链**,不主动创建);说同样的话走同一份手册 |
+| Cursor | 2.4+ 原生读 `~/.agents/skills`(同上,目录已存在时才落链) |
 
 不做 plugin 打包(三家 manifest 互不兼容且 Codex 侧 schema 仍在频繁变更)、不做 MCP(对本地 markdown 是过度设计)、不做 web(建造信号未出现)。
 

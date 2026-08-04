@@ -52,7 +52,8 @@ cd ~/AI/wiki-manage && ./install.sh --uninstall
 v4 之前的安装没有 `installed_files` 清单。最省事的路:**先重跑 `./install.sh`**(自动迁移旧产物并生成清单),之后再 `--uninstall`。坚持手动清理时,v3 时代的落点是:
 
 ```bash
-rm -rf ~/.claude/skills/wiki-ingest ~/.claude/skills/wiki-query ~/.claude/skills/wiki-lint   # 渲染副本目录
+rm -rf ~/.claude/skills/flux-wiki   # 渲染副本目录(v5 起合一;v4 及之前为 wiki-ingest / wiki-query / wiki-lint 三个)
+rm -rf ~/.claude/skills/wiki-ingest ~/.claude/skills/wiki-query ~/.claude/skills/wiki-lint
 rm -f  ~/.claude/commands/wiki-help.md ~/.claude/commands/wiki-learn.md
 rm -f  ~/.flux-wiki.json
 # ~/.claude/CLAUDE.md 与 ~/.codex/AGENTS.md:删除 "flux-wiki begin" 到 "flux-wiki end" 整段

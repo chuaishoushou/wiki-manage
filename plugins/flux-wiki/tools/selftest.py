@@ -429,12 +429,11 @@ def init_e2e():
         codex_ptr = os.path.join(fake_home, ".codex", "AGENTS.md")
         check("Codex 指针块同一份正文", os.path.isfile(codex_ptr)
               and "flux-wiki begin" in open(codex_ptr, encoding="utf-8").read())
-        skill = os.path.join(fake_home, ".claude", "skills", "wiki-query")
-        agents_skill = os.path.join(fake_home, ".agents", "skills", "wiki-query")
-        check("skill 以 symlink 安装(~/.claude + ~/.agents 双落点)",
-              os.path.islink(skill) and os.path.isfile(os.path.join(skill, "SKILL.md"))
-              and os.path.islink(agents_skill)
-              and os.path.isfile(os.path.join(agents_skill, "SKILL.md")))
+        skill = os.path.join(fake_home, ".claude", "skills", "flux-wiki")
+        check("skill 以 symlink 安装(主落点 ~/.claude)",
+              os.path.islink(skill) and os.path.isfile(os.path.join(skill, "SKILL.md")))
+        check("未在用的多宿主目录不被主动创建(~/.agents/skills)",
+              not os.path.isdir(os.path.join(fake_home, ".agents", "skills")))
         cmd = os.path.join(fake_home, ".claude", "commands", "wiki-learn.md")
         check("命令 /wiki-learn 装上且为静态链接", os.path.islink(cmd)
               and "{{" not in open(cmd, encoding="utf-8").read())
@@ -546,12 +545,16 @@ def init_e2e():
               and "措辞已过期" in r.stdout)
 
         # 旧版渲染副本(非链接目录)让位:挪进备份,绝不删除
-        old_skill = os.path.join(fake_home, ".claude", "skills", "wiki-ingest")
+        old_skill = os.path.join(fake_home, ".claude", "skills", "flux-wiki")
         if os.path.islink(old_skill):
             os.unlink(old_skill)
         os.makedirs(old_skill, exist_ok=True)
         with open(os.path.join(old_skill, "SKILL.md"), "w") as f:
             f.write("旧版渲染副本")
+        # 同时布一个历史 skill 名的残留链接,断言重装会被清理(防幽灵 skill)
+        legacy_link = os.path.join(fake_home, ".claude", "skills", "wiki-query")
+        if not os.path.lexists(legacy_link):
+            os.symlink(os.path.join(PLUGIN, "skills", "flux-wiki"), legacy_link)
         def backed_up(name):
             """备份统一进 ~/.flux-wiki-backups/<ts>/(绝不留在 AI 工具扫描路径里,
             否则会被当作幽灵 skill/命令扫出来);递归找被备份的名字。"""
@@ -567,7 +570,9 @@ def init_e2e():
         scan_dirs = [d for d in os.listdir(os.path.join(fake_home, ".claude", "skills"))
                      if d.startswith(".flux-wiki-backup-")]
         check("旧渲染副本备份让位(挪出扫描路径,不删除)", r.returncode == 0
-              and os.path.islink(old_skill) and backed_up("wiki-ingest") and not scan_dirs)
+              and os.path.islink(old_skill) and backed_up("flux-wiki") and not scan_dirs)
+        check("历史 skill 名残留链接被重装清理(防幽灵 skill)",
+              not os.path.lexists(legacy_link))
 
         # 用户同名 shim 备份让位(绝不盲覆盖)
         os.unlink(shim)
@@ -878,9 +883,9 @@ def v1_config_compat_e2e():
 # ---------- 5. skill 触发词断言 ----------
 
 MUST_COVER = {
-    "skills/wiki-ingest/SKILL.md": ["记一下", "入库", "沉淀", "踩坑"],
-    "skills/wiki-query/SKILL.md": ["查询", "概念", "踩坑"],
-    "skills/wiki-lint/SKILL.md": ["体检", "lint", "清理"],
+    # 三意图合一入口:三组触发词都必须留在同一份 description 里
+    "skills/flux-wiki/SKILL.md": ["记一下", "入库", "沉淀", "踩坑",
+                                  "查询", "概念", "体检", "lint", "清理"],
     "commands/wiki-learn.md": ["团队", "学习", "git"],
     "commands/wiki-help.md": ["能力", "命令"],
 }

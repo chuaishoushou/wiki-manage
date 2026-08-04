@@ -36,7 +36,7 @@ TROUBLE_WORDS = [
     "打不开", "白屏", "超时", "异常", "崩", "丢失", "覆盖了",
 ]
 # 知识库相关 skill，命中即视为「有沉淀动作」
-WIKI_SKILLS = {"wiki-ingest", "wiki-learn", "wiki-query", "wiki-lint", "wiki-daily"}
+WIKI_SKILLS = {"flux-wiki", "wiki-ingest", "wiki-learn", "wiki-query", "wiki-lint", "wiki-daily"}  # 旧名保留以识别历史会话
 
 # 任务号：FLUX 的模块/任务编号形如 T1202 / A0801 / E343
 TASK_CODE_RE = re.compile(r"\b([TtAaEeDdMm]\d{3,4})\b")
