@@ -16,13 +16,16 @@ v4 安装哲学:**部署物零路径**。指针块/skill/命令全是静态文�
      全绿零输出零打扰,环境漂移(团队仓蒸发/水位孤儿)下个会话开头就报警(--no-hook 跳过)
   7. 自验证:部署物在场、链接可解析、doctor 无 error;任一不过退出非 0
 
-个人库与团队仓位置**强制必填**(参数 > 已有配置 > 终端询问;非终端缺任一项 rc=2)。
+个人库与团队仓位置**强制必填**,且必须来自用户:终端逐项询问(已有配置只作为明确
+显示的回车默认值);非终端(AI/CI)只认显式来源——命令行参数,或 --use-config(向用户
+展示已有配置、用户确认沿用后才允许带),两者皆无 rc=2,**绝不静默复用配置/默认值**。
 本仓(wiki-manage)就是运行时:装完**不要删**;更新 = git pull(部署物是链接,无需重装)。
 
 用法:
-  bin/wiki-init                                                # 终端逐项询问
-  bin/wiki-init --personal-root ~/AI/wiki --team-root <git仓>  # 非交互(可多个 --team-root)
-  bin/wiki-init --uninstall                                    # 按安装清单精确卸载
+  bin/wiki-init                                                 # 终端逐项询问
+  bin/wiki-init --personal-root <个人库> --team-root <团队仓git克隆>  # 非交互(可多个 --team-root)
+  bin/wiki-init --use-config                                    # 非交互沿用已有配置(须用户确认过)
+  bin/wiki-init --uninstall                                     # 按安装清单精确卸载
 """
 import argparse
 import json
@@ -119,9 +122,14 @@ def _valid_team(path, interactive, label="--team-root"):
 def resolve_paths(args, interactive):
     """返回 (personal, teams)。teams = [{name, path, branch, exclude}],≥1 个。
 
-    来源优先级(每项独立):命令行参数 > 已有配置(上次提供的值)> 终端询问;
-    非终端缺任一项报错 rc=2,绝不静默用默认。复用配置里的团队仓时同样校验活性
-    ——配置里的路径可能已被上游重构蒸发(实际发生过),装的时候就要拦下。
+    双路径必须来自用户(每项独立):
+    - 命令行参数:一等来源,永远可用;
+    - 终端交互:缺参数项逐项询问;已有配置/默认建议只作为**明确显示的回车默认值**,
+      团队仓同样逐仓显示确认(回车沿用,输入替换),不存在"不问直接沿用";
+    - 非交互(AI/CI):缺参数项只允许经 --use-config 显式沿用已有配置——AI 必须先向
+      用户展示配置值并获确认才允许带它;否则 rc=2 并打印检测到的配置值。
+      绝不静默复用配置/环境变量:"重装不问人直接装到旧路径"实际发生过,这里是防线。
+    复用配置里的路径时同样校验活性——路径可能已被移动/重构蒸发(实际发生过)。
     """
     cfg = load_config()
     missing = []
@@ -136,7 +144,7 @@ def resolve_paths(args, interactive):
                 info(f"  ⚠ 配置里的个人库路径已不存在(库被移动?):{known}")
             personal = _ask("① 个人库目录(日常读写的知识库;不存在会自动建)",
                             _abspath(known) if known else _abspath(DEFAULT_PERSONAL))
-        elif known:
+        elif known and args.use_config:
             personal = _abspath(known)
             # 复用配置的路径必须验活:库被移动后在死路径上重建空库 = 知识库静默分叉
             # (doctor 全绿、工具一切"正常",真实库孤儿化——比报错危险得多)
@@ -146,7 +154,9 @@ def resolve_paths(args, interactive):
                                  "(确要在原位置新建空库也请显式带参数确认)。\n")
                 sys.exit(2)
         else:
-            missing.append(f"--personal-root <目录>   个人库(不存在会自动建,建议 {DEFAULT_PERSONAL})")
+            hint = (f"检测到已有配置 {_abspath(known)},沿用需 --use-config" if known
+                    else f"不存在会自动建,建议 {DEFAULT_PERSONAL}")
+            missing.append(f"--personal-root <目录>   个人库({hint})")
 
     known_by_path = {_abspath(t.get("path", "")): t
                      for t in (cfg.get("teams") or []) if isinstance(t, dict) and t.get("path")}
@@ -160,24 +170,21 @@ def resolve_paths(args, interactive):
                           "exclude": old.get("exclude") or []})
     else:
         known_teams = cfg.get("teams") or ([{"path": cfg["team_root"]}] if cfg.get("team_root") else [])
-        if known_teams:
-            for t in known_teams:
-                p = _abspath(t.get("path", ""))
-                if not (os.path.isdir(p) and git_ok(p)):
-                    if interactive:
-                        info(f"  ⚠ 配置里的团队仓已失效:{p}")
-                        p = _valid_team(p, interactive=True)
-                    else:
-                        sys.stderr.write(f"❌ 配置里的团队仓已失效:{p}\n"
-                                         "   团队仓被移动/重构过。带 --team-root <新路径> 重跑。\n")
-                        sys.exit(2)
-                teams.append({"name": t.get("name") or os.path.basename(p), "path": p,
-                              "branch": t.get("branch") or git_branch(p),
-                              "exclude": t.get("exclude") or []})
-        elif interactive:
-            p = _valid_team(_ask("② 团队知识仓目录(git clone,只读,学习源)", None), True)
-            teams.append({"name": os.path.basename(p), "path": p,
-                          "branch": git_branch(p), "exclude": []})
+        if interactive:
+            if known_teams:  # 已有配置:逐仓显示确认(回车沿用,输入新路径替换)
+                for t in known_teams:
+                    p0 = _abspath(t.get("path", ""))
+                    if not (os.path.isdir(p0) and git_ok(p0)):
+                        info(f"  ⚠ 配置里的团队仓已失效:{p0}")
+                    p = _valid_team(_ask("② 团队知识仓目录(git clone,只读,学习源)", p0), True)
+                    old = known_by_path.get(p, {})
+                    teams.append({"name": old.get("name") or os.path.basename(p), "path": p,
+                                  "branch": old.get("branch") or git_branch(p),
+                                  "exclude": old.get("exclude") or []})
+            else:
+                p = _valid_team(_ask("② 团队知识仓目录(git clone,只读,学习源)", None), True)
+                teams.append({"name": os.path.basename(p), "path": p,
+                              "branch": git_branch(p), "exclude": []})
             while True:
                 more = input("   再加一个团队仓?(路径,回车结束)> ").strip()
                 if not more:
@@ -185,14 +192,28 @@ def resolve_paths(args, interactive):
                 p = _valid_team(_abspath(more), True)
                 teams.append({"name": os.path.basename(p), "path": p,
                               "branch": git_branch(p), "exclude": []})
+        elif known_teams and args.use_config:
+            for t in known_teams:
+                p = _abspath(t.get("path", ""))
+                if not (os.path.isdir(p) and git_ok(p)):
+                    sys.stderr.write(f"❌ 配置里的团队仓已失效:{p}\n"
+                                     "   团队仓被移动/重构过。带 --team-root <新路径> 重跑。\n")
+                    sys.exit(2)
+                teams.append({"name": t.get("name") or os.path.basename(p), "path": p,
+                              "branch": t.get("branch") or git_branch(p),
+                              "exclude": t.get("exclude") or []})
         else:
-            missing.append("--team-root <目录>       团队知识仓(git clone,只读;可重复给多个)")
+            hint = ("检测到已有配置 " + ", ".join(
+                        _abspath(t.get("path", "")) for t in known_teams)
+                    + ",沿用需 --use-config" if known_teams else "git clone,只读")
+            missing.append(f"--team-root <目录>       团队知识仓({hint};可重复给多个)")
 
     if missing:
         sys.stderr.write("❌ 缺少必需的路径参数(个人库与团队仓强制必填,缺一不可):\n")
         for m in missing:
             sys.stderr.write(f"   {m}\n")
-        sys.stderr.write("   AI 执行安装时:请先向用户询问上述位置,再带参数重跑本命令。\n")
+        sys.stderr.write("   AI 执行安装时:必须先向用户【询问】这两个位置——已有配置也要向用户展示、\n"
+                         "   由用户确认沿用后才带 --use-config;严禁照抄文档示例路径或自行猜测。\n")
         sys.exit(2)
     return personal, teams
 
@@ -555,6 +576,8 @@ def main():
     p.add_argument("--team-root", action="append",
                    help="团队知识仓目录(强制必填;git clone,可重复给多个)")
     p.add_argument("--wiki-root", help="[兼容别名] 等价 --personal-root")
+    p.add_argument("--use-config", action="store_true",
+                   help="非交互下沿用 ~/.flux-wiki.json 已有路径(AI 须先向用户展示配置并获确认)")
     p.add_argument("--dry-run", action="store_true", help="只预览,不写任何文件")
     p.add_argument("--no-input", action="store_true", help="跳过交互(用参数/配置)")
     p.add_argument("--no-hook", action="store_true", help="不装 Claude Code SessionStart 巡检 hook")

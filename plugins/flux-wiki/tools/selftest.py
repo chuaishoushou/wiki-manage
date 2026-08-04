@@ -467,7 +467,8 @@ def init_e2e():
               and os.path.getsize(ptr) == size1 and len(hooks2) == 1)
 
         # 双路径强制必填:全新 HOME(无配置)下非交互缺任一项直接报错,绝不静默用默认;
-        # 装过一次后,配置里上次提供的值可沿用(重跑不必重复给参数)
+        # 装过一次后,重跑也不允许静默沿用配置——必须 --use-config 显式声明
+        # (AI 须先向用户展示配置并获确认),否则 rc=2 并在报错里打印检测到的配置值
         with tempfile.TemporaryDirectory() as td_nt:
             home_nt = os.path.join(td_nt, "h")
             os.makedirs(os.path.join(home_nt, ".claude"))
@@ -487,8 +488,12 @@ def init_e2e():
                   and "--personal-root" in r.stderr and "--team-root" in r.stderr)
             r = run_init_nt("--personal-root", kb_nt, "--team-root", team, "--no-input")
             check("双路径齐全安装成功", r.returncode == 0)
-            r = run_init_nt("--no-input")  # 两个路径均来自配置记忆(上次明确提供的值)
-            check("配置记忆生效(重跑不报错)", r.returncode == 0)
+            r = run_init_nt("--no-input")  # 有配置但无 --use-config:拒绝静默沿用
+            check("非交互重跑拒绝静默沿用配置 rc=2 且展示配置值",
+                  r.returncode == 2 and "--use-config" in r.stderr
+                  and kb_nt in r.stderr and team in r.stderr)
+            r = run_init_nt("--no-input", "--use-config")  # 用户确认沿用后显式声明
+            check("--use-config 显式沿用配置成功", r.returncode == 0)
 
         # 死路径 / 非 git 团队仓被拦截(非交互)
         r = run_init("--personal-root", personal,
@@ -572,13 +577,13 @@ def init_e2e():
         check("用户同名 shim 备份让位", r.returncode == 0 and backed_up("wiki-cli")
               and "plugins/flux-wiki" in open(shim, encoding="utf-8").read())
 
-        # stale personal_root:配置里的库路径蒸发 → 非交互拒绝在死路径重建空库
+        # stale personal_root:配置里的库路径蒸发 → 即使 --use-config 也拒绝在死路径重建空库
         cfgj = os.path.join(fake_home, ".flux-wiki.json")
         saved_cfg = open(cfgj, encoding="utf-8").read()
         c = json.loads(saved_cfg)
         c["personal_root"] = os.path.join(td, "moved-away")
         open(cfgj, "w").write(json.dumps(c))
-        r = run_init("--no-input")
+        r = run_init("--no-input", "--use-config")
         check("stale personal_root 拒绝静默重建 rc=2", r.returncode == 2
               and not os.path.isdir(os.path.join(td, "moved-away")))
         open(cfgj, "w").write(saved_cfg)

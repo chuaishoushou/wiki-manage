@@ -5,10 +5,13 @@
 #   git clone https://github.com/chuaishoushou/wiki-manage.git ~/AI/wiki-manage
 #   cd ~/AI/wiki-manage && ./install.sh
 #
-# 安装强制要求提供个人库与团队仓位置,缺一不可:终端里逐项必答(回车只能用明确
-# 显示的默认值,没有"跳过");AI/CI(非终端)必须带全两个参数,缺任一项报错退出
-# (AI 应先向用户询问两个位置再重跑)。参数原样透传 bin/wiki-init,如:
-#   ./install.sh --personal-root ~/AI/wiki --team-root ~/AI/team-wiki
+# 安装强制要求提供个人库与团队仓位置,缺一不可,且必须来自用户:
+# - 终端:逐项必答(回车只能用明确显示的默认值,没有"跳过");
+# - AI/CI(非终端):必须带全两个参数,缺任一项报错退出 rc=2。
+#   AI 执行安装:先向用户【询问】两个位置再带参数重跑;已有配置(~/.flux-wiki.json)
+#   也要向用户展示、由用户确认沿用后才允许带 --use-config 代替参数;
+#   严禁照抄文档示例/占位路径,严禁自行猜测。下面 <...> 是占位符,不是可执行示例:
+#   ./install.sh --personal-root <个人库路径> --team-root <团队仓git克隆路径>
 #
 set -uo pipefail
 

@@ -18,9 +18,9 @@ cd %USERPROFILE%\AI\wiki-manage
 .\install.cmd
 ```
 
-- 安装**强制要求提供两个路径**:**个人库**与**团队仓**(已存在的 git clone,可给多个 `--team-root`)。终端逐项必答;AI / CI(非终端)必须带全参数,缺任一项报错 rc=2,绝不静默用默认:
-  `./install.sh --personal-root ~/AI/wiki --team-root <团队仓路径>`
-- 重装 / 更新不必重复给参数:`~/.flux-wiki.json` 里上次的路径直接沿用。
+- 安装**强制要求提供两个路径,且必须来自用户**:**个人库**与**团队仓**(已存在的 git clone,可给多个 `--team-root`)。终端逐项必答(已有配置只作为明确显示的回车默认值);AI / CI(非终端)必须带全参数,缺任一项报错 rc=2,绝不静默复用配置/默认值(`<...>` 是占位符,AI 严禁照抄示例路径或自行猜测,必须先向用户询问):
+  `./install.sh --personal-root <个人库路径> --team-root <团队仓路径>`
+- 重装时已有 `~/.flux-wiki.json` 配置:终端里逐项显示供回车确认;AI 执行则必须把配置值展示给用户,用户确认沿用后带 `--use-config` 重跑(代替双参数)。
 - 安装做的事:初始化个人库(幂等,绝不覆盖已有页)→ 写静态指针块(`~/.claude/CLAUDE.md` / `~/.codex/AGENTS.md`,重装整段替换)→ 3 个 skill **symlink** 进 `~/.claude/skills` 与 `~/.agents/skills`(Codex 与 Cursor 2.4+ 原生读后者,**Cursor 不再需要手动粘贴**;本机有 `~/.codex/skills` 时也链一份),斜杠命令链进 `~/.claude/commands` → `~/.local/bin/wiki-cli` shim → Claude Code SessionStart 巡检 hook(全绿零输出,`--no-hook` 跳过)→ 写配置 + 安装清单 → **自验证**(doctor 全绿才算装好)。
 - **本仓即运行时,装完不要删**。更新只需 `git -C ~/AI/wiki-manage pull`——部署物是链接,自动生效,无需重装。
 

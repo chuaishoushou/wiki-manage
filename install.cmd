@@ -6,10 +6,12 @@ REM    git clone https://github.com/chuaishoushou/wiki-manage.git %USERPROFILE%\
 REM    cd %USERPROFILE%\AI\wiki-manage
 REM    .\install.cmd
 REM
-REM  人和 AI 同一条命令。个人库与团队仓位置强制必填:终端里逐项必答
-REM  (回车只能用明确显示的默认值);非终端(AI/CI)缺任一项报错退出 rc=2,
-REM  绝不静默用默认 —— AI 应先向用户询问两个位置再带参数重跑:
-REM    .\install.cmd --personal-root %USERPROFILE%\AI\wiki --team-root ^<团队仓^>
+REM  人和 AI 同一条命令。个人库与团队仓位置强制必填,且必须来自用户:
+REM  终端里逐项必答(回车只能用明确显示的默认值);非终端(AI/CI)缺任一项
+REM  报错退出 rc=2,绝不静默复用配置/默认值。AI 执行安装:先向用户【询问】
+REM  两个位置再带参数重跑;已有配置也要向用户展示、确认沿用后才允许带
+REM  --use-config;严禁照抄示例/占位路径或自行猜测。^<...^> 是占位符:
+REM    .\install.cmd --personal-root ^<个人库路径^> --team-root ^<团队仓git克隆路径^>
 REM  参数原样透传 bin\wiki-init。
 REM ============================================================
 setlocal
